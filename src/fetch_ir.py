@@ -271,7 +271,8 @@ def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
     return out
 
 
-HEADLESS_TIMEOUT_MS = 20000
+HEADLESS_NAV_TIMEOUT_MS = 15000
+HEADLESS_RENDER_WAIT_MS = 5000
 
 
 def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
@@ -293,7 +294,13 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
             browser = p.chromium.launch()
             try:
                 page = browser.new_page(user_agent=HEADERS["User-Agent"])
-                page.goto(ir_url, timeout=HEADLESS_TIMEOUT_MS, wait_until="networkidle")
+                # "networkidle" times out on modern SPAs that never go fully
+                # quiet (analytics beacons, polling, chat widgets, etc, keep
+                # firing indefinitely) even once the actual content is
+                # rendered. Wait for the DOM instead, then give React/Vue/etc
+                # a fixed window to hydrate and paint the news list.
+                page.goto(ir_url, timeout=HEADLESS_NAV_TIMEOUT_MS, wait_until="domcontentloaded")
+                page.wait_for_timeout(HEADLESS_RENDER_WAIT_MS)
                 html = page.content()
             finally:
                 browser.close()
