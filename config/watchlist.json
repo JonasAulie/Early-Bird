@@ -634,7 +634,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "CLOUD",
-      "ir_url": "https://www.cloudberry.no/news",
+      "ir_url": "https://www.cloudberry.no/about/news",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Hold"
