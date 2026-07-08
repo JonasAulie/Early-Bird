@@ -1,10 +1,11 @@
 """Sends the finished digest via the Resend API.
 
 Requires RESEND_API_KEY as an env var (set as a GitHub Actions secret --
-see .github/workflows/early-bird.yml). FROM_EMAIL should be an address on a
-domain you've verified in Resend (https://resend.com/domains); until a
-domain is verified, Resend only lets you send to the account owner's own
-address, which won't work for the jonas.aulie@seb.no recipient.
+see .github/workflows/early-bird.yml). Without a verified domain in Resend
+(https://resend.com/domains), Resend only allows sending to the account
+owner's own address -- so for now this only sends to jonasaulie@gmail.com.
+To add jonas.aulie@seb.no back, verify a domain you actually control (not
+seb.no -- that needs SEB's own IT/DNS admins) and add it to RECIPIENTS.
 """
 import os
 from typing import List
@@ -12,7 +13,7 @@ from typing import List
 import requests
 
 RESEND_API_URL = "https://api.resend.com/emails"
-DEFAULT_RECIPIENTS = ["jonasaulie@gmail.com", "jonas.aulie@seb.no"]
+DEFAULT_RECIPIENTS = ["jonasaulie@gmail.com"]
 
 
 def send_digest(subject: str, html_body: str, recipients: List[str] = None):

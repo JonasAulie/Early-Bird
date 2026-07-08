@@ -115,7 +115,13 @@ def main():
     if entries:
         html = render_html(entries)
         subject = f"Early Bird utkast -- {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-        send_digest(subject, html)
+        try:
+            send_digest(subject, html)
+        except Exception as e:
+            # Don't let an email failure blow away dedup state / fail the
+            # whole run -- log it loudly and keep going. The next successful
+            # run's state save is what prevents these items from piling up.
+            print(f"[main] ERROR: failed to send digest email: {e}", file=sys.stderr)
 
     # Mark every fetched candidate (not just the ones the model kept) as
     # seen, so irrelevant items don't get re-evaluated every run either.
