@@ -273,6 +273,8 @@ def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
 
 HEADLESS_NAV_TIMEOUT_MS = 15000
 HEADLESS_RENDER_WAIT_MS = 5000
+HEADLESS_EXTRA_WAIT_MS = 4000  # one retry wait if the first render looks empty
+HEADLESS_MAX_ATTEMPTS = 2
 
 
 def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
@@ -282,6 +284,11 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
     real (headless) Chromium and re-runs the same anchor-tag scrape against
     the resulting DOM. Only reached when the feed + plain-HTML paths both
     found nothing, so this shouldn't run for the majority of companies.
+
+    Live testing showed the fixed render-wait is occasionally too short --
+    same code, same URL, one run got 0 anchors and the next got 510 -- so
+    this retries once with extra wait time before giving up, rather than
+    trusting a single roll of real-world network timing.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -301,18 +308,24 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
                 # a fixed window to hydrate and paint the news list.
                 page.goto(ir_url, timeout=HEADLESS_NAV_TIMEOUT_MS, wait_until="domcontentloaded")
                 page.wait_for_timeout(HEADLESS_RENDER_WAIT_MS)
-                html = page.content()
+                items = _scrape_listing(ir_url, page.content(), company_id)
+                attempt = 1
+                while not items and attempt < HEADLESS_MAX_ATTEMPTS:
+                    attempt += 1
+                    page.wait_for_timeout(HEADLESS_EXTRA_WAIT_MS)
+                    items = _scrape_listing(ir_url, page.content(), company_id)
             finally:
                 browser.close()
     except Exception as e:
         print(f"[fetch_ir] WARNING: headless browser fetch failed for {company_id} ({ir_url}): {e}")
         return []
 
-    items = _scrape_listing(ir_url, html, company_id)
     if items:
         print(f"[fetch_ir] NOTE: {company_id} needed the headless-browser fallback "
-              f"(plain HTTP got an empty JS app shell) -- found {len(items)} headlines.")
+              f"(plain HTTP got an empty JS app shell) -- found {len(items)} headlines "
+              f"(attempt {attempt}/{HEADLESS_MAX_ATTEMPTS}).")
     else:
         print(f"[fetch_ir] NOTE: {company_id} headless-browser fallback rendered the page "
-              f"but still found no headline-shaped links -- may need per-site tuning.")
+              f"but still found no headline-shaped links after {HEADLESS_MAX_ATTEMPTS} attempts "
+              f"-- may need per-site tuning.")
     return items
