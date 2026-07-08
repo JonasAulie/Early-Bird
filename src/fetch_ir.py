@@ -134,6 +134,37 @@ _DATE_HINT_RE = re.compile(
 # A date baked into the article URL itself, e.g. /news/2026/07/08/title.
 _HREF_DATE_RE = re.compile(r"(20\d{2})[/\-](\d{1,2})[/\-](\d{1,2})")
 
+# Machine-readable date attributes many CMSs emit next to a headline, e.g.
+# <time datetime="2026-07-08T09:00:00Z">8 Jul</time>. get_text() throws these
+# away, so we check the attributes directly -- rescues pages whose visible date
+# is relative ("2 days ago") or rendered by JS but whose markup still carries a
+# real timestamp.
+_DATE_ATTRS = ("datetime", "data-date", "data-datetime", "data-published", "data-time")
+
+
+def _parse_iso_attr(val: str):
+    if not val or not re.search(r"20\d\d", val):
+        return None
+    try:
+        dt = dateparser.parse(val)
+        return dt.isoformat() if dt else None
+    except (ValueError, OverflowError, TypeError):
+        return None
+
+
+def _attr_date_in(node):
+    """First machine-readable date attribute found within a scope node."""
+    if not hasattr(node, "find_all"):
+        return None
+    candidates = [node] if getattr(node, "attrs", None) else []
+    candidates += node.find_all(True)
+    for el in candidates:
+        for attr in _DATE_ATTRS:
+            parsed = _parse_iso_attr(el.get(attr))
+            if parsed:
+                return parsed
+    return None
+
 
 def _parse_date_string(raw: str):
     low = raw.lower()
@@ -168,6 +199,9 @@ def _extract_published(anchor, href: str):
     for _ in range(3):  # headline scope, then widen to its card / row
         if node is None:
             break
+        attr_date = _attr_date_in(node)
+        if attr_date:
+            return attr_date
         hint = _DATE_HINT_RE.search(node.get_text(" ", strip=True))
         if hint:
             parsed = _parse_date_string(hint.group(0))
