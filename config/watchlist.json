@@ -117,7 +117,7 @@
       "category": "major_oil",
       "exchange": "Tadawul",
       "newsweb_issuer": null,
-      "ir_url": "https://www.aramco.com/en/news-media",
+      "ir_url": "https://www.aramco.com/en/investors/investor-news",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -238,7 +238,7 @@
       "category": "oilfield_service",
       "exchange": "NASDAQ",
       "newsweb_issuer": null,
-      "ir_url": "https://www.patenergy.com/news-events/news",
+      "ir_url": "https://investor.patenergy.com/Investors/News-and-Events/news/default.aspx",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -348,7 +348,7 @@
       "category": "seb_coverage_oilfield_service",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "SED",
-      "ir_url": null,
+      "ir_url": "https://www.energyholdings.cy/news/",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
@@ -502,7 +502,7 @@
       "category": "norwegian_other",
       "exchange": "Euronext Growth Oslo",
       "newsweb_issuer": "CAVEN",
-      "ir_url": null,
+      "ir_url": "https://cavendishh2.com/press-releases/",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -590,7 +590,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Euronext Growth Oslo",
       "newsweb_issuer": "IWS",
-      "ir_url": null,
+      "ir_url": "https://www.integratedwind.com/investor/news-calendar",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
@@ -612,7 +612,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "MGN",
-      "ir_url": null,
+      "ir_url": "https://magnoraasa.com/inside-information-disclosures/",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
