@@ -51,6 +51,14 @@ fungerende på en ekte GitHub Actions-kjøring. Newsweb dekker ikke alt en
 bedrift publiserer (bl.a. ikke-informasjonspliktige pressemeldinger), så
 `src/main.py` henter alltid også selskapets egen IR-side i tillegg.
 
+List-endepunktet over gir bare tittel, ikke selve meldingsteksten -- det
+gjorde tidlige kommentarer generiske/feil (f.eks. «no transaction details
+were disclosed» på en melding som faktisk oppga kjøpesum og earn-out).
+`src/fetch_newsweb.py` henter nå i tillegg full meldingstekst per sak fra
+`.../v1/newsreader/message?messageId=<id>` (funnet via
+`scripts/probe_newsweb_message_body.py`), så drafteren har de faktiske
+tallene å jobbe med.
+
 **Viktig: `newsweb_issuer`-koden må være verifisert riktig, ellers får du
 feilkoblet innhold.** Oppdaget via `scripts/probe_newsweb_issuer_mismatch.py`:
 fire ticker-koder i watchlisten (`KOMA` for Kongsberg Maritime, `SOMAR` for

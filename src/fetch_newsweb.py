@@ -14,6 +14,15 @@ Playwright network trace (see scripts/probe_newsweb_playwright.py):
     -> {"data": {"messages": [{"messageId": 677726, "title": "...",
                                 "publishedTime": "2026-07-07T06:00:05.862Z",
                                 "issuerName": "Equinor ASA", ...}, ...]}}
+
+The list endpoint above only returns the title, not the disclosure body --
+using it alone made the drafter's comments generic/wrong (e.g. "no
+transaction details were disclosed" on a release that actually specified a
+USD 100m+ price and an earn-out). The full text lives at a separate
+endpoint (see scripts/probe_newsweb_message_body.py):
+
+    GET https://api3.oslo.oslobors.no/v1/newsreader/message?messageId=677857
+    -> {"data": {"message": {"body": "OSLO, Norway (8 July 2026) - ...", ...}}}
 """
 from typing import List, Dict
 
@@ -52,14 +61,31 @@ def fetch_issuer_messages(issuer: str) -> List[Dict]:
             continue
         categories = item.get("category") or []
         category_text = ", ".join(c.get("category_en", "") for c in categories if c.get("category_en"))
+        body = _fetch_message_body(message_id)
         out.append({
             "title": title,
             "url": f"https://newsweb.oslobors.no/message/{message_id}",
             "published": published,
-            "summary": category_text or None,
+            # Prefer the full disclosure text over the bare category tag so
+            # the drafter has real figures/detail to work from -- fall back
+            # to the category if the body fetch fails for some reason.
+            "summary": body or category_text or None,
             "source": f"Newsweb ({issuer})",
         })
     return out
+
+
+def _fetch_message_body(message_id: int):
+    url = f"{API_BASE}/message?messageId={message_id}"
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        resp.raise_for_status()
+        payload = resp.json()
+    except (requests.RequestException, ValueError) as e:
+        print(f"[fetch_newsweb] WARNING: could not fetch message body for messageId={message_id}: {e}")
+        return None
+    body = payload.get("data", {}).get("message", {}).get("body")
+    return body.strip() if body else None
 
 
 def debug_probe(issuer: str):
