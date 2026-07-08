@@ -92,6 +92,17 @@ def _parse_feed(feed_url: str, company_id: str) -> List[Dict]:
     return out
 
 
+# Generic nav/footer link text that shows up on every corporate page and is
+# never itself a news headline -- filtering these out before they reach the
+# LLM cuts noise (and token cost) substantially.
+_NAV_JUNK_PATTERNS = (
+    "cookie", "privacy", "terms of", "sitemap", "contact us", "log in",
+    "sign in", "sign up", "subscribe", "careers", "job openings",
+    "read more", "learn more", "view all", "see all", "back to",
+    "skip to", "accept all", "manage preferences", "follow us",
+)
+
+
 def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
     """Best-effort, low-confidence fallback: grab anchor tags that look
     like news headlines. No reliable publish-date extraction here, so
@@ -104,6 +115,8 @@ def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
         text = a.get_text(strip=True)
         href = a["href"]
         if not text or len(text) < 15:
+            continue
+        if any(p in text.lower() for p in _NAV_JUNK_PATTERNS):
             continue
         full_url = urljoin(ir_url, href)
         if full_url in seen_urls:
