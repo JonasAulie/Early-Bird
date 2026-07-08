@@ -26,12 +26,17 @@ from src.schedule_guard import should_run_now
 
 
 def lookback_cutoff(now_utc: datetime) -> datetime:
-    """1 day back normally; back to Saturday if today is Monday (Oslo local
-    date), so weekend news isn't missed."""
+    """Early Bird goes out ~08:30 Oslo time, so the relevant window is
+    'since yesterday's 08:30 Oslo' -- not a rolling 24h from whenever this
+    particular run happens to fire. On Mondays, back up to last Friday
+    08:30 so weekend news isn't missed."""
     from zoneinfo import ZoneInfo
-    local_weekday = now_utc.astimezone(ZoneInfo("Europe/Oslo")).weekday()
-    days_back = 2 if local_weekday == 0 else 1  # Monday -> covers Sat+Sun+today
-    return now_utc - timedelta(days=days_back)
+    oslo = ZoneInfo("Europe/Oslo")
+    local_now = now_utc.astimezone(oslo)
+    days_back = 3 if local_now.weekday() == 0 else 1  # Monday -> back to Friday
+    cutoff_date = local_now - timedelta(days=days_back)
+    cutoff_local = cutoff_date.replace(hour=8, minute=30, second=0, microsecond=0)
+    return cutoff_local.astimezone(timezone.utc)
 
 
 def is_recent_enough(published_raw, cutoff: datetime) -> bool:
@@ -70,6 +75,7 @@ def collect_candidates(companies, cutoff, seen_ids):
             if iid in seen_ids:
                 continue
             item["company"] = company["name"]
+            item["recommendation"] = company.get("recommendation")
             item["_id"] = iid
             candidates.append(item)
     return candidates
