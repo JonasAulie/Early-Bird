@@ -141,10 +141,24 @@ Chromium (`playwright install --with-deps chromium`) i hvert kjøre.
 
 Fallback-en trigges bevisst konservativt (kun ved *totalt* null treff, ikke
 bare manglende dato) for å holde ekstra kjøretid nede — de fleste selskaper
-som allerede fungerer via feed/scrape berøres ikke. Sjekk loggen for
+som allerede fungerer via feed/scrape berøres ikke. Rendring er bevist å
+fungere i seg selv (en enkeltstående DOM-dump fant 726 lenker og bekreftet
+ekte innhold på siden), og prøver på nytt én gang med lengre ventetid før
+den gir opp, siden en fast ventetid av og til er for kort. Sjekk loggen for
 `[fetch_ir] NOTE: ... needed the headless-browser fallback` for å se hvilke
 selskaper som faktisk trengte den, og `WARNING: headless browser fetch
 failed` hvis selv det ikke klarte å hente noe.
+
+**Ærlig status på Baker Hughes spesifikt:** i testing herfra ga gjentatte
+automatiserte besøk til samme side i rask rekkefølge (5 kjøringer på under
+10 minutter) inkonsistente resultater — én kjøring fant alt innhold
+(inkl. en kjent testsak), andre fant ingenting med identisk kode. Mest
+sannsynlige forklaring er adferdsbasert bot-beskyttelse som strammer til
+etter gjentatte besøk fra samme kilde på kort tid (ikke uvanlig for store
+corporate WAF-er). De virkelige produksjonskjøringene skjer bare 3x/dag med
+timers mellomrom, ikke i rask rekkefølge som denne testingen, så reell
+oppførsel kan avvike fra det som ble observert her — men det er ikke fullt
+verifisert at Baker Hughes vil gi konsistente treff i produksjon.
 
 ## Kjente begrensninger
 
