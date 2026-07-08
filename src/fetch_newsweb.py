@@ -1,68 +1,62 @@
 """Fetches company announcements from Oslo Bors Newsweb for issuers that
 are listed there (see watchlist.json 'newsweb_issuer' field).
 
-IMPORTANT / UNVERIFIED: this session had no network access when this file
-was written, so the exact Newsweb endpoint/response shape below is a
-best-effort guess based on publicly documented Newsweb URL patterns, NOT
-a tested integration. Before relying on this in production:
+Newsweb (newsweb.oslobors.no) is a React SPA that fetches its own runtime
+config from /urls.json, which points the frontend at the real backend --
+this overrides the build-time REACT_APP_API_URL baked into the JS bundle
+(which is a dead/internal dev host and not usable). Confirmed via a
+Playwright network trace (see scripts/probe_newsweb_playwright.py):
 
-  1. Run `python -c "from src.fetch_newsweb import debug_probe; debug_probe('EQNR')"`
-     from an environment with real internet access.
-  2. If it 404s or the JSON shape doesn't match, open
-     https://newsweb.oslobors.no/ in a browser, open devtools -> Network,
-     filter by an issuer, and copy the real request URL + response shape
-     here.
+    GET https://newsweb.oslobors.no/urls.json
+    -> {"api_large": "https://api3.oslo.oslobors.no", ...}
+
+    GET https://api3.oslo.oslobors.no/v1/newsreader/list?issuer=EQNR
+    -> {"data": {"messages": [{"messageId": 677726, "title": "...",
+                                "publishedTime": "2026-07-07T06:00:05.862Z",
+                                "issuerName": "Equinor ASA", ...}, ...]}}
 """
-from datetime import datetime, timezone
 from typing import List, Dict
 
 import requests
 
-CANDIDATE_ENDPOINTS = [
-    "https://api2.oslobors.no/newsweb/api/messages?issuer={issuer}",
-    "https://newsweb.oslobors.no/api/messages?issuer={issuer}",
-]
-
+API_BASE = "https://api3.oslo.oslobors.no/v1/newsreader"
 TIMEOUT = 15
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Accept": "application/json",
+}
 
 
 def fetch_issuer_messages(issuer: str) -> List[Dict]:
-    """Returns a list of {title, url, published, source} for the given
-    Newsweb issuer code. Returns [] (and prints a warning) on any failure
-    rather than raising, so one bad company doesn't kill the whole run.
+    """Returns a list of {title, url, published, summary, source} for the
+    given Newsweb issuer code. Returns [] (and prints a warning) on any
+    failure rather than raising, so one bad company doesn't kill the run.
     """
-    for endpoint in CANDIDATE_ENDPOINTS:
-        url = endpoint.format(issuer=issuer)
-        try:
-            resp = requests.get(url, timeout=TIMEOUT, headers={"User-Agent": "early-bird-bot/1.0"})
-            if resp.status_code != 200:
-                continue
-            payload = resp.json()
-            return _normalize(payload, issuer)
-        except (requests.RequestException, ValueError):
-            continue
-    print(f"[fetch_newsweb] WARNING: could not fetch Newsweb messages for issuer={issuer}")
-    return []
+    url = f"{API_BASE}/list?issuer={issuer}"
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        resp.raise_for_status()
+        payload = resp.json()
+    except (requests.RequestException, ValueError) as e:
+        print(f"[fetch_newsweb] WARNING: could not fetch Newsweb messages for issuer={issuer}: {e}")
+        return []
 
-
-def _normalize(payload, issuer: str) -> List[Dict]:
-    # Best-effort normalization; adjust once the real response shape is known.
-    items = payload.get("messages") or payload.get("data") or payload
+    messages = payload.get("data", {}).get("messages", [])
     out = []
-    if not isinstance(items, list):
-        return out
-    for item in items:
-        title = item.get("title") or item.get("subject")
-        msg_id = item.get("id") or item.get("messageId")
-        published = item.get("publishedDate") or item.get("published") or item.get("date")
-        summary = item.get("body") or item.get("summary") or item.get("attachmentText")
-        if not title or not msg_id:
+    for item in messages:
+        title = item.get("title")
+        message_id = item.get("messageId")
+        published = item.get("publishedTime")
+        if not title or not message_id:
             continue
+        categories = item.get("category") or []
+        category_text = ", ".join(c.get("category_en", "") for c in categories if c.get("category_en"))
         out.append({
             "title": title,
-            "url": f"https://newsweb.oslobors.no/message/{msg_id}",
+            "url": f"https://newsweb.oslobors.no/message/{message_id}",
             "published": published,
-            "summary": summary,
+            "summary": category_text or None,
             "source": f"Newsweb ({issuer})",
         })
     return out
@@ -70,11 +64,7 @@ def _normalize(payload, issuer: str) -> List[Dict]:
 
 def debug_probe(issuer: str):
     """Manual helper to inspect the raw response while verifying the API."""
-    for endpoint in CANDIDATE_ENDPOINTS:
-        url = endpoint.format(issuer=issuer)
-        try:
-            resp = requests.get(url, timeout=TIMEOUT, headers={"User-Agent": "early-bird-bot/1.0"})
-            print(url, "->", resp.status_code)
-            print(resp.text[:1000])
-        except requests.RequestException as e:
-            print(url, "-> ERROR", e)
+    url = f"{API_BASE}/list?issuer={issuer}"
+    resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    print(url, "->", resp.status_code)
+    print(resp.text[:2000])

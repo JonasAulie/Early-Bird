@@ -59,11 +59,9 @@ def collect_candidates(companies, cutoff, seen_ids):
         items = []
         if company.get("newsweb_issuer"):
             items.extend(fetch_issuer_messages(company["newsweb_issuer"]))
-        # Newsweb turned out to be a pure JS single-page app (confirmed via
-        # scripts/probe_urls.py -- every URL guess returns the same empty
-        # React shell), so a plain requests.get() never gets real data from
-        # it. Until that's reverse-engineered properly, always also try the
-        # company's own IR page as a fallback/complement rather than treating
+        # Newsweb doesn't cover every disclosure a company makes (e.g. some
+        # non-regulatory press releases), so always also fetch the
+        # company's own IR page as a complement rather than treating
         # newsweb_issuer and ir_url as mutually exclusive.
         if company.get("ir_url"):
             items.extend(fetch_company_news(company["id"], company["ir_url"]))
