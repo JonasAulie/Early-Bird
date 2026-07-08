@@ -178,9 +178,42 @@ verifisert at Baker Hughes vil gi konsistente treff i produksjon.
   en midlertidig workflow_dispatch-jobb for å teste fra en runner med ekte
   nettilgang.
 
+## Relevanskriterier (hva som tas med / droppes)
+
+`src/draft.py` sitt system-prompt har en eksplisitt kriterieliste. Grunn-
+spørsmålet er: «ville dette endret hvordan en forvalter tenker om aksjen,
+en peer eller sektoren i dag?» — altså value-add nyhetsflyt som kan bevege
+en kurs.
+
+**Tas MED:** (a) kontrakter/tildelinger/ordre/tenders/rammeavtaler/LOI/MOU
+— uansett størrelse, også uten oppgitt verdi hvis omfang/motpart er
+vesentlig; (b) M&A og porteføljegrep (oppkjøp, frasalg, fusjoner, farm-in/
+out, vesentlige eierandelsendringer); (c) field developments / E&P-
+milepæler (FID, funn, first oil/gas, produksjonsstart, reserveoppdateringer,
+lisensrunder, PUD-godkjenning); (d) kapital-/balansegrep (tilbakekjøp,
+utbytteendring, emisjoner, refinansiering, rating); (e) guiding & vesentlige
+trading-data (profit warnings, guiding opp/ned, trading-oppdateringer med
+NYE tall vs forventning, rig-count); (f) rigg/OSV-markedsdata (rater,
+kontrakter, utnyttelse, nybygg/salg); (g) regulatorisk/juridisk/politisk med
+reell finansiell effekt (OPEC, sanksjoner, bøter, skatt); (h) store
+driftsforstyrrelser (utfall, force majeure, streik); (i) sektor/makro selv
+uten ett navngitt selskap.
+
+**Droppes:** ren publisering av kvartals-/årsrapport eller invitasjon til
+resultatpresentasjon («save the date») — selve publiseringen er ikke en
+nyhet i seg selv, kun tas med hvis den bærer en reell overraskelse/nytt
+vesentlig datapunkt; rutinemessige primærinnsidemeldinger og flaggemeldinger
+(med mindre uvanlig store); aksjekapital-/stemmerett-administrasjon, GF-
+innkallinger og administrative filinger; mindre personalendringer (under
+C-nivå); generisk ESG/PR/markedsføring/sponsing; duplikater av samme sak.
+
+Ved tvil om en åpenbar kontrakt/M&A/field-development-sak: ta den MED. Det
+var nettopp en slik som tidligere feilaktig ble droppet (TGS' salg til
+Enverus) før kriteriene ble gjort eksplisitte.
+
 ## Drafting-stil
 
-`src/draft.py` sitt system-prompt inneholder ekte eksempler fra tidligere
+`src/draft.py` sitt system-prompt inneholder også ekte eksempler fra tidligere
 Early Bird-utgaver (format, informasjonstetthet, når man avslutter med en
 kort vurdering som "Neutral for Equinor." eller "Share price positive.").
 Oppdater few-shot-eksemplene der om stilen bør justeres videre.

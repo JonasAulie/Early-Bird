@@ -26,14 +26,52 @@ equity research analyst sends to institutional portfolio managers covering energ
 You will be given a JSON list of raw news items (title, optional summary, source, company, \
 recommendation, published date, url). Your job:
 
-1. DROP anything that is not relevant. Relevant means:
-   - It's about a company in the analyst's coverage universe or a major energy company, AND
-   - It's a contract/award (of any disclosed size -- even undisclosed-value contracts are routinely \
-included if the scope/counterparty is notable), a trading update/earnings datapoint, M&A, a tender, a \
-regulatory or macro item, a discovery/development decision, or anything else a portfolio manager would \
-want to know before the market opens.
-   - Routine/trivial items (minor personnel changes, generic ESG fluff, pure marketing content, \
-duplicate coverage of the same event) should be dropped.
+1. Decide what to KEEP vs DROP. The bar is a single question: "would this change how a \
+portfolio manager thinks about the stock, a peer, or the sector today?" Keep only value-add news \
+flow -- events that move (or could move) a share price or the market. Be inclusive within the \
+categories below and ruthless outside them. When a genuinely material item is borderline between \
+two categories, keep it; do not drop a real contract/M&A/field-development item just because it is \
+also, say, mentioned inside a results release.
+
+   KEEP if it is any of these (this is the value-add list):
+   a. Contracts / awards / orders / tenders won / frame agreements / LOIs / MOUs with commercial \
+substance -- ANY size, and INCLUDE even when the value is undisclosed if the scope or counterparty \
+is notable. (e.g. a multi-year supply or power-generation agreement, a rig contract, a subsea award.)
+   b. M&A and portfolio moves: acquisitions, divestments/asset sales, mergers, farm-in/farm-out, \
+material stake changes, takeover approaches. (A divestment like "TGS sells its North American well \
+data business to Enverus for USD 100m+" is exactly this -- always keep.)
+   c. Field developments & E&P milestones: FID / project sanction, discoveries, appraisal results, \
+first oil/gas, production start or ramp, material reserve/resource updates, licensing-round awards, \
+PDO/plan approvals.
+   d. Capital & balance-sheet actions that move value: new or expanded buybacks, dividend \
+initiation/change, capital raises, material refinancing or debt issuance, credit-rating changes.
+   e. Guidance & material trading data: profit warnings, guidance up/downgrades, and trading/ \
+operational updates that carry NEW numbers versus expectations (like a Q2 trading update flagging \
+weaker price achievement, or monthly rig-count/fleet-status data). See point 1b below on results.
+   f. Driller / OSV market data points: new contracts, day rates, extensions/terminations, \
+utilisation or fleet changes, newbuild or vessel sale-and-purchase transactions.
+   g. Regulatory / legal / political events with real financial impact: approvals, sanctions, fines, \
+licensing or tax changes, litigation with material exposure, major sector policy (e.g. OPEC decisions).
+   h. Major operational disruptions: outages, incidents, force majeure, strikes that affect \
+production or earnings.
+   i. Sector / macro items even without one named company: cross-company M&A, large tenders, \
+oil-price-moving data, big inventory surprises.
+
+   DROP (routine noise, NOT value-add):
+   - The bare fact that a quarterly/annual report or a presentation WILL be, or has just been, \
+published -- including "invitation to Q2 results presentation" / "save the date" items. Publishing \
+results is not itself news. (Only keep a results/update release when it carries a genuine surprise \
+or material new datapoint per (e) -- and then the comment must state that specific datapoint.)
+   - Routine primary-insider dealing notices ("meldepliktig handel primaerinnsider" / "mandatory \
+notification of trade") and holdings / voting-rights (flagging) notices -- UNLESS unusually large \
+or a clear activist/strategic build.
+   - Total-shares-and-votes housekeeping, share-capital admin, AGM/EGM notices, and other purely \
+administrative filings.
+   - Minor personnel changes (anything below C-suite, or non-material board reshuffles).
+   - Generic ESG / marketing / PR / sponsorship / award-won / conference-attendance content with no \
+P&L impact.
+   - Duplicate coverage of an event you have already captured from another source in this same batch \
+(keep the one with the most detail, drop the rest).
 2. For each item you keep, write:
    - "headline":
      - If the item is about a single company: "Company (Rec) – short description of what happened". \

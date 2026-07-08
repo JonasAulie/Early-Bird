@@ -271,10 +271,16 @@ def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
     return out
 
 
-HEADLESS_NAV_TIMEOUT_MS = 15000
-HEADLESS_RENDER_WAIT_MS = 5000
-HEADLESS_EXTRA_WAIT_MS = 4000  # one retry wait if the first render looks empty
-HEADLESS_MAX_ATTEMPTS = 2
+HEADLESS_NAV_TIMEOUT_MS = 20000
+# A bare SPA app shell has only a handful of nav/footer anchors; once the news
+# list actually renders the anchor count jumps into the dozens/hundreds. Poll
+# for that instead of trusting a fixed sleep (which was flaky -- same URL got
+# 0 anchors one run and 500+ the next). This is a best-effort accelerator, not
+# a hard gate: if it never crosses the threshold we still scrape whatever did
+# render once the poll window elapses.
+HEADLESS_CONTENT_ANCHOR_THRESHOLD = 40
+HEADLESS_CONTENT_TIMEOUT_MS = 15000
+HEADLESS_SETTLE_WAIT_MS = 1500
 
 
 def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
@@ -284,11 +290,6 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
     real (headless) Chromium and re-runs the same anchor-tag scrape against
     the resulting DOM. Only reached when the feed + plain-HTML paths both
     found nothing, so this shouldn't run for the majority of companies.
-
-    Live testing showed the fixed render-wait is occasionally too short --
-    same code, same URL, one run got 0 anchors and the next got 510 -- so
-    this retries once with extra wait time before giving up, rather than
-    trusting a single roll of real-world network timing.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -302,30 +303,34 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
             try:
                 page = browser.new_page(user_agent=HEADERS["User-Agent"])
                 # "networkidle" times out on modern SPAs that never go fully
-                # quiet (analytics beacons, polling, chat widgets, etc, keep
-                # firing indefinitely) even once the actual content is
-                # rendered. Wait for the DOM instead, then give React/Vue/etc
-                # a fixed window to hydrate and paint the news list.
+                # quiet (analytics beacons, polling, chat widgets keep firing
+                # forever) even once the content is painted. Wait for the DOM,
+                # then poll until the news list has actually populated (anchor
+                # count crosses the threshold) rather than guessing a sleep.
                 page.goto(ir_url, timeout=HEADLESS_NAV_TIMEOUT_MS, wait_until="domcontentloaded")
-                page.wait_for_timeout(HEADLESS_RENDER_WAIT_MS)
-                items = _scrape_listing(ir_url, page.content(), company_id)
-                attempt = 1
-                while not items and attempt < HEADLESS_MAX_ATTEMPTS:
-                    attempt += 1
-                    page.wait_for_timeout(HEADLESS_EXTRA_WAIT_MS)
-                    items = _scrape_listing(ir_url, page.content(), company_id)
+                try:
+                    page.wait_for_function(
+                        "n => document.querySelectorAll('a').length > n",
+                        arg=HEADLESS_CONTENT_ANCHOR_THRESHOLD,
+                        timeout=HEADLESS_CONTENT_TIMEOUT_MS,
+                    )
+                except Exception:
+                    # Never crossed the threshold in time -- fall through and
+                    # scrape whatever rendered anyway (some real pages are small).
+                    pass
+                page.wait_for_timeout(HEADLESS_SETTLE_WAIT_MS)
+                html = page.content()
             finally:
                 browser.close()
     except Exception as e:
         print(f"[fetch_ir] WARNING: headless browser fetch failed for {company_id} ({ir_url}): {e}")
         return []
 
+    items = _scrape_listing(ir_url, html, company_id)
     if items:
         print(f"[fetch_ir] NOTE: {company_id} needed the headless-browser fallback "
-              f"(plain HTTP got an empty JS app shell) -- found {len(items)} headlines "
-              f"(attempt {attempt}/{HEADLESS_MAX_ATTEMPTS}).")
+              f"(plain HTTP got an empty JS app shell) -- found {len(items)} headlines.")
     else:
         print(f"[fetch_ir] NOTE: {company_id} headless-browser fallback rendered the page "
-              f"but still found no headline-shaped links after {HEADLESS_MAX_ATTEMPTS} attempts "
-              f"-- may need per-site tuning.")
+              f"but still found no headline-shaped links -- may need per-site tuning.")
     return items
