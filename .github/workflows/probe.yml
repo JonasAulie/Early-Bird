@@ -1,0 +1,19 @@
+name: Probe (throwaway diagnostic)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install --no-build-isolation -r requirements.txt
+      - name: Probe Newsweb issuer mismatch
+        run: python -m scripts.probe_newsweb_issuer_mismatch
