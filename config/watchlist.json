@@ -271,7 +271,7 @@
       "category": "seb_coverage_oilfield_service",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "KOMA",
-      "ir_url": "https://www.kongsberg.com/maritime/news/",
+      "ir_url": "https://www.kongsberg.com/news/",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
@@ -293,7 +293,7 @@
       "category": "seb_coverage_oilfield_service",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "TGS",
-      "ir_url": "https://www.tgs.com/news",
+      "ir_url": "https://www.tgs.com/press-releases",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Hold"
@@ -326,7 +326,7 @@
       "category": "seb_coverage_oilfield_service",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "BWO",
-      "ir_url": "https://www.bwoffshore.com/media/news/",
+      "ir_url": "https://bwoffshore.com/all-press-releases",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Hold"
@@ -359,7 +359,7 @@
       "category": "seb_coverage_oilfield_service",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "AKA",
-      "ir_url": "https://www.akastor.com/newsroom/",
+      "ir_url": "https://akastor.com/investors/press-releases",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
@@ -381,7 +381,7 @@
       "category": "driller",
       "exchange": "NYSE/SIX",
       "newsweb_issuer": null,
-      "ir_url": "https://www.deepwater.com/media/press-releases",
+      "ir_url": "https://www.deepwater.com/news",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Sell"
@@ -403,7 +403,7 @@
       "category": "driller",
       "exchange": "NYSE",
       "newsweb_issuer": null,
-      "ir_url": "https://www.noblecorp.com/news",
+      "ir_url": "https://noblecorp.com/our-investors/investor-news/",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Sell"
@@ -414,7 +414,7 @@
       "category": "driller",
       "exchange": "NYSE",
       "newsweb_issuer": null,
-      "ir_url": "https://www.seadrill.com/media/press-releases",
+      "ir_url": "https://www.seadrill.com/media/",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Buy"
@@ -425,7 +425,7 @@
       "category": "driller",
       "exchange": "Oslo Bors/NYSE",
       "newsweb_issuer": "BORR",
-      "ir_url": "https://www.borrdrilling.com/investors/press-releases",
+      "ir_url": "https://www.borrdrilling.com/news",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Hold"
@@ -436,7 +436,7 @@
       "category": "driller",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "ODL",
-      "ir_url": "https://www.odfjelldrilling.com/newsroom/",
+      "ir_url": "https://www.odfjelldrilling.com/news/",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Buy"
@@ -447,7 +447,7 @@
       "category": "norwegian_other",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "OTL",
-      "ir_url": "https://www.odfjelltechnology.com/newsroom/",
+      "ir_url": "https://www.odfjelltechnology.com/news/",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -458,7 +458,7 @@
       "category": "norwegian_other",
       "exchange": "Euronext Growth Oslo",
       "newsweb_issuer": "NORAM",
-      "ir_url": null,
+      "ir_url": "https://noramdrilling.com/index.php/news/",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -469,7 +469,7 @@
       "category": "norwegian_other",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "SEA1",
-      "ir_url": null,
+      "ir_url": "https://www.sea1offshore.com/news",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -535,7 +535,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Oslo Bors/Nasdaq Copenhagen",
       "newsweb_issuer": "CADLR",
-      "ir_url": "https://cadeler.com/newsroom/",
+      "ir_url": "https://www.cadeler.com/news",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Hold"
@@ -557,7 +557,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "BONHR",
-      "ir_url": null,
+      "ir_url": "https://bonheur.no/investors/stock-exchange-announcements/",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
@@ -601,7 +601,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "HEX",
-      "ir_url": "https://hexagongroup.com/media/press-releases/",
+      "ir_url": "https://hexagongroup.com/news",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
@@ -623,7 +623,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "HPUR",
-      "ir_url": "https://hexagonpurus.com/press-releases",
+      "ir_url": "https://hexagonpurus.com/news",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Hold"
@@ -634,7 +634,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "CLOUD",
-      "ir_url": null,
+      "ir_url": "https://www.cloudberry.no/news",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Hold"
