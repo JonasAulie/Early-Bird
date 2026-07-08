@@ -131,6 +131,8 @@ def main():
     entries = draft_entries(candidates)
     print(f"[main] {len(entries)} entries kept after relevance filtering")
     kept_urls = {e.get("url") for e in entries}
+    for e in entries:
+        print(f"[main]   kept: headline={e.get('headline')!r}")
     for c in candidates:
         if c["url"] not in kept_urls:
             print(f"[main]   dropped by relevance filter: company={c['company']!r} title={c['title'][:100]!r}")

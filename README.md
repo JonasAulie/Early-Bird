@@ -51,6 +51,21 @@ fungerende på en ekte GitHub Actions-kjøring. Newsweb dekker ikke alt en
 bedrift publiserer (bl.a. ikke-informasjonspliktige pressemeldinger), så
 `src/main.py` henter alltid også selskapets egen IR-side i tillegg.
 
+**Viktig: `newsweb_issuer`-koden må være verifisert riktig, ellers får du
+feilkoblet innhold.** Oppdaget via `scripts/probe_newsweb_issuer_mismatch.py`:
+fire ticker-koder i watchlisten (`KOMA` for Kongsberg Maritime, `SOMAR` for
+Solstad Maritime, `SED` for SED Energy Holdings, `AKA` for Akastor) var ikke
+gjenkjent av API-et, som da falt tilbake på en generisk/urelatert 69-post
+liste (samme respons for alle fire, med et helt annet selskap øverst) i
+stedet for et tomt resultat. Dette kunne ha ført til at en reell børsmelding
+fra ett selskap ble sendt ut merket med et helt annet selskaps navn. Alle
+fire er nå satt til `newsweb_issuer: null` (de dekkes fortsatt via sin
+`ir_url`) inntil noen finner og verifiserer de faktiske Newsweb-tickerne
+deres — for Kongsberg Maritime er det mulig det ikke finnes en egen
+børsnotering i det hele tatt (det er en forretningsenhet under Kongsberg
+Gruppen ASA). Bekreftet korrekte: `EQNR`, `TGS`, `NEL`, `NORAM`, `SUBC`,
+`AKRBP`, `VAR`.
+
 ## Recency / kun siste døgn
 
 Kun saker publisert innenfor tidsvinduet (siden 08:30 Oslo dagen før, se
