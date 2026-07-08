@@ -19,7 +19,10 @@ def send_digest(subject: str, html_body: str, recipients: List[str] = None):
     api_key = os.environ.get("RESEND_API_KEY")
     if not api_key:
         raise RuntimeError("RESEND_API_KEY not set")
-    from_email = os.environ.get("FROM_EMAIL", "early-bird@resend.dev")
+    # `or` (not just .get(default=)) matters here: GitHub Actions sets the env
+    # var to an empty string when the secret doesn't exist, rather than
+    # omitting it, so a plain default= would never kick in.
+    from_email = os.environ.get("FROM_EMAIL") or "onboarding@resend.dev"
     recipients = recipients or DEFAULT_RECIPIENTS
 
     resp = requests.post(
