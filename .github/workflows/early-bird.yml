@@ -45,3 +45,4 @@ jobs:
           git add state/seen.json
           git diff --cached --quiet || git commit -m "Update seen-items state [skip ci]"
           git push
+
