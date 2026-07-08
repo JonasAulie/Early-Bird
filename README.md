@@ -56,13 +56,41 @@ bedrift publiserer (bl.a. ikke-informasjonspliktige pressemeldinger), så
 Kun saker publisert innenfor tidsvinduet (siden 08:30 Oslo dagen før, se
 under) slippes gjennom. For sider uten RSS-feed scrapes overskrifter, og
 `src/fetch_ir.py` prøver hardt å finne en publiseringsdato ved siden av hver
-overskrift (dato i selve artikkel-URL-en, eller en datostreng i overskriftens
-kort/rad — også norske datoer som «8. juli 2026»). **Klarer vi ikke å datofeste
-en scrapet overskrift, droppes den.** Det er med vilje: tidligere lente koden
-seg kun på dedup, så første gang en ny IR-URL begynte å virke ble hele forsiden
-med *gamle* overskrifter sendt ut som om de var nye (det var det som sendte tre
+overskrift (dato i selve artikkel-URL-en, `<time datetime>`/`data-date`-
+attributter, eller en datostreng i overskriftens kort/rad — også norske
+datoer som «8. juli 2026»). **Klarer vi ikke å datofeste en scrapet
+overskrift, droppes den.** Det er med vilje: tidligere lente koden seg kun på
+dedup, så første gang en ny IR-URL begynte å virke ble hele forsiden med
+*gamle* overskrifter sendt ut som om de var nye (det var det som sendte tre
 gamle SED Energy-saker). Det koster potensielt en sjelden udatert sak, men
 sparer både feilsendinger og token-bruk.
+
+Datotolkning respekterer regional konvensjon: skråstrek-datoer (`7/8/2026`)
+tolkes måned-først (amerikansk IR-side-konvensjon), punktum-datoer
+(`08.07.2026`) tolkes dag-først (europeisk/norsk konvensjon), ISO
+(`2026-07-08`) er alltid entydig. Før dette ble alle ikke-ISO datoer tolket
+dag-først, som stille kunne bytte om dag og måned på amerikanske
+pressemeldinger datert forbi den 12. i måneden.
+
+## Dedup: hvorfor en LLM-feilvurdering ikke lenger begraver en sak permanent
+
+`src/main.py` markerer hentede saker som «sett» i `state/seen.json` slik at
+de ikke evalueres på nytt (og koster tokens) hver kjøring. For IR-scraping
+(høyt volum, mest støy) skjer dette uansett hva modellen konkluderer. For
+**Newsweb**-saker (sjeldne, offisielle børsmeldinger) markeres en sak derimot
+kun som «sett» hvis den faktisk ble beholdt av relevansfilteret (og dermed
+sendt) — ikke bare fordi den ble hentet. Årsak: en reell børsmelding fra TGS
+(salg av virksomhet til Enverus) ble hentet korrekt og besto recency-sjekken,
+men relevansfilteret (Claude) feilvurderte den som irrelevant i én kjøring —
+og den gamle koden markerte den som «sett» uansett, så den forsvant permanent
+og kunne aldri dukke opp igjen i noen senere kjøring. Nå får en Newsweb-sak
+en ny sjanse på neste kjøring helt til den enten blir sendt eller faller ut
+av tidsvinduet naturlig (1–3 dager).
+
+Hvis noe fortsatt mangler: `src/main.py` logger nå hver kandidat som ble
+hentet (selskap, dato, tittel) og alt relevansfilteret droppet — les
+run-loggen på GitHub Actions for å se nøyaktig hva som skjedde med en
+konkret sak, i stedet for å måtte skrive et eget probe-script.
 
 ## Token-bruk / kostnad
 

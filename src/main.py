@@ -146,10 +146,20 @@ def main():
             # run's state save is what prevents these items from piling up.
             print(f"[main] ERROR: failed to send digest email: {e}", file=sys.stderr)
 
-    # Mark every fetched candidate (not just the ones the model kept) as
-    # seen, so irrelevant items don't get re-evaluated every run either.
+    # Mark fetched candidates as seen so irrelevant IR-scrape noise doesn't
+    # get re-evaluated (and re-cost tokens) every run. But Newsweb items are
+    # rare, official regulatory disclosures, not high-volume noise -- a single
+    # LLM relevance-filter miss must not permanently bury a real corporate
+    # disclosure with no way to recover (this is exactly what happened to a
+    # TGS divestment announcement: the model wrongly dropped it once, it got
+    # marked seen anyway, and it silently vanished for good). So only mark a
+    # Newsweb item seen once it's actually been kept (and thus sent) -- a
+    # missed one gets another chance on the next run until it ages out of the
+    # recency window.
     for c in candidates:
-        seen_ids.add(c["_id"])
+        is_newsweb = c["source"].startswith("Newsweb")
+        if not is_newsweb or c["url"] in kept_urls:
+            seen_ids.add(c["_id"])
     save_seen(seen_ids)
 
 
