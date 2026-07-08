@@ -4,12 +4,10 @@ are not on Oslo Bors Newsweb. Tries, in order:
   1. RSS/Atom feed autodiscovery from the IR page's <link rel="alternate">.
   2. A few common feed URL guesses (page + '/rss', '/feed', etc.)
   3. A best-effort HTML scrape of the news listing page for headline links.
-
-UNVERIFIED: written without network access (see README). Expect to need
-per-company tuning once real requests can be made -- some IR sites are
-JS-rendered and won't yield anything from a plain requests.get(); those
-will show up as empty results and should be logged for follow-up rather
-than silently trusted.
+  4. A headless-browser render, only if 1-3 all found nothing -- some IR
+     sites (confirmed: Baker Hughes) are pure client-side JS apps and a
+     plain requests.get() only ever sees an empty page shell, no matter the
+     URL. See scripts/probe_bakerhughes.py for the confirming investigation.
 """
 import re
 from datetime import datetime
@@ -54,7 +52,14 @@ def fetch_company_news(company_id: str, ir_url: str) -> List[Dict]:
             return items
 
     # Fall back to scraping the listing page itself.
-    return _scrape_listing(ir_url, resp.text, company_id)
+    items = _scrape_listing(ir_url, resp.text, company_id)
+    if items:
+        return items
+
+    # Both the feed and the plain-HTML scrape found nothing -- likely a
+    # client-side-rendered SPA (a plain GET only sees the app shell). Try
+    # again with a real browser before giving up on this company entirely.
+    return _fetch_via_headless_browser(ir_url, company_id)
 
 
 def _discover_feed(base_url: str, html: str):
@@ -264,3 +269,43 @@ def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
               f"({dated}/{len(out)} headlines had an extractable date; undated ones "
               f"are dropped by the recency filter).")
     return out
+
+
+HEADLESS_TIMEOUT_MS = 20000
+
+
+def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
+    """Last-resort fallback for IR pages that are pure client-side apps (a
+    plain requests.get() only ever sees an empty shell -- confirmed for
+    Baker Hughes via scripts/probe_bakerhughes.py). Renders the page with a
+    real (headless) Chromium and re-runs the same anchor-tag scrape against
+    the resulting DOM. Only reached when the feed + plain-HTML paths both
+    found nothing, so this shouldn't run for the majority of companies.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print(f"[fetch_ir] WARNING: playwright not installed, skipping headless fallback for {company_id}")
+        return []
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            try:
+                page = browser.new_page(user_agent=HEADERS["User-Agent"])
+                page.goto(ir_url, timeout=HEADLESS_TIMEOUT_MS, wait_until="networkidle")
+                html = page.content()
+            finally:
+                browser.close()
+    except Exception as e:
+        print(f"[fetch_ir] WARNING: headless browser fetch failed for {company_id} ({ir_url}): {e}")
+        return []
+
+    items = _scrape_listing(ir_url, html, company_id)
+    if items:
+        print(f"[fetch_ir] NOTE: {company_id} needed the headless-browser fallback "
+              f"(plain HTTP got an empty JS app shell) -- found {len(items)} headlines.")
+    else:
+        print(f"[fetch_ir] NOTE: {company_id} headless-browser fallback rendered the page "
+              f"but still found no headline-shaped links -- may need per-site tuning.")
+    return items

@@ -127,19 +127,28 @@ faktisk er datofestet innenfor døgnet — typisk en brøkdel. Vil du kutte mer
 kan man bytte drafting-modellen i `src/draft.py` (`MODEL`) til en billigere
 Claude-modell, på bekostning av litt tekstkvalitet.
 
+## JS-rendrede IR-sider (headless-nettleser-fallback)
+
+En vanlig `requests.get()` ser bare skallet en ren JavaScript-app (SPA)
+sender ut før JavaScript kjører — bekreftet for Baker Hughes
+(`bakerhughes.com/company/news` ga 848 bytes tomt skall, ingen overskrifter
+i det hele tatt) via `scripts/probe_bakerhughes.py`. `src/fetch_ir.py` prøver
+derfor, kun hvis både RSS-feed og vanlig HTML-scrape finner null treff, å
+rendre siden med en ekte (headless) Chromium-nettleser via Playwright og
+kjøre samme scrape-logikk på det rendrede resultatet
+(`_fetch_via_headless_browser`). GitHub Actions-workflowen installerer
+Chromium (`playwright install --with-deps chromium`) i hvert kjøre.
+
+Fallback-en trigges bevisst konservativt (kun ved *totalt* null treff, ikke
+bare manglende dato) for å holde ekstra kjøretid nede — de fleste selskaper
+som allerede fungerer via feed/scrape berøres ikke. Sjekk loggen for
+`[fetch_ir] NOTE: ... needed the headless-browser fallback` for å se hvilke
+selskaper som faktisk trengte den, og `WARNING: headless browser fetch
+failed` hvis selv det ikke klarte å hente noe.
+
 ## Kjente begrensninger
 
-- **JS-rendrede IR-sider gir null treff, uansett riktig URL:** en vanlig
-  `requests.get()` ser bare skallet en SPA sender ut før JavaScript kjører.
-  Bekreftet for Baker Hughes (`bakerhughes.com/company/news` gir 848 bytes
-  tomt skall, ingen overskrifter) via `scripts/probe_bakerhughes.py` — samme
-  klasse problem som Newsweb hadde, men uten en tilsvarende offentlig
-  JSON-API å reverse-engineere. Rammer trolig flere av de store
-  utenlandske selskapene (mange viser `0/15 med dato` i loggen — noen av de
-  er nok tomme skall som dette, andre er ekte server-rendrede sider som bare
-  mangler en datostreng nær overskriften). Løsning krever en ekte
-  (headless) nettleser i produksjonsscanneren, ikke bare i et probe-script —
-  ikke gjort ennå, si ifra om det skal prioriteres.
+
 - **Kan fortsatt bli blokkert av bot-beskyttelse (403):** Weatherford,
   Chevron, BP, Ørsted har WAF/Akamai-beskyttelse som kan avvise automatiserte
   requests uansett User-Agent. De har nå fått de oppgitte IR-URL-ene (juli
