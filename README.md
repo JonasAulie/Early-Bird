@@ -78,6 +78,17 @@ Claude-modell, på bekostning av litt tekstkvalitet.
 
 ## Kjente begrensninger
 
+- **JS-rendrede IR-sider gir null treff, uansett riktig URL:** en vanlig
+  `requests.get()` ser bare skallet en SPA sender ut før JavaScript kjører.
+  Bekreftet for Baker Hughes (`bakerhughes.com/company/news` gir 848 bytes
+  tomt skall, ingen overskrifter) via `scripts/probe_bakerhughes.py` — samme
+  klasse problem som Newsweb hadde, men uten en tilsvarende offentlig
+  JSON-API å reverse-engineere. Rammer trolig flere av de store
+  utenlandske selskapene (mange viser `0/15 med dato` i loggen — noen av de
+  er nok tomme skall som dette, andre er ekte server-rendrede sider som bare
+  mangler en datostreng nær overskriften). Løsning krever en ekte
+  (headless) nettleser i produksjonsscanneren, ikke bare i et probe-script —
+  ikke gjort ennå, si ifra om det skal prioriteres.
 - **Kan fortsatt bli blokkert av bot-beskyttelse (403):** Weatherford,
   Chevron, BP, Ørsted har WAF/Akamai-beskyttelse som kan avvise automatiserte
   requests uansett User-Agent. De har nå fått de oppgitte IR-URL-ene (juli
@@ -87,10 +98,11 @@ Claude-modell, på bekostning av litt tekstkvalitet.
   IR-URL-er (juli 2026); disse verifiseres på neste live-kjøring.
 - Noen få selskaper i `config/watchlist.json` mangler fortsatt `ir_url`
   (`null`) — spesielt et par mindre norske Euronext Growth-selskaper.
-- `scripts/probe_urls.py`, `scripts/probe_newsweb_playwright.py` og
-  `scripts/discover_ir_urls.py` er beholdt som permanente feilsøkingsverktøy
-  — legg til nye kandidater der og kjør via en midlertidig
-  workflow_dispatch-jobb for å teste fra en runner med ekte nettilgang.
+- `scripts/probe_urls.py`, `scripts/probe_newsweb_playwright.py`,
+  `scripts/probe_bakerhughes.py` og `scripts/discover_ir_urls.py` er beholdt
+  som permanente feilsøkingsverktøy — legg til nye kandidater der og kjør via
+  en midlertidig workflow_dispatch-jobb for å teste fra en runner med ekte
+  nettilgang.
 
 ## Drafting-stil
 

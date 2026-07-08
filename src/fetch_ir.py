@@ -67,7 +67,12 @@ def _discover_feed(base_url: str, html: str):
         candidate = base_url.rstrip("/") + suffix
         try:
             r = requests.head(candidate, timeout=TIMEOUT, headers=HEADERS, allow_redirects=True)
-            if r.status_code == 200:
+            # Some JS single-page apps 200 on *any* path (client-side router
+            # catch-all) and would otherwise look like a valid feed here even
+            # though the body is just the app shell -- require a content-type
+            # that actually looks like a feed.
+            content_type = r.headers.get("content-type", "").lower()
+            if r.status_code == 200 and ("xml" in content_type or "rss" in content_type):
                 return candidate
         except requests.RequestException:
             continue
