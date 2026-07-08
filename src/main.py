@@ -41,16 +41,21 @@ def lookback_cutoff(now_utc: datetime) -> datetime:
 
 def is_recent_enough(published_raw, cutoff: datetime) -> bool:
     if not published_raw:
-        # Unknown publish date (HTML-scrape fallback) -- let dedup state be
-        # the safety net instead of dropping it here.
-        return True
+        # No verifiable publish date. Relying on dedup alone (the old
+        # behaviour) meant the first crawl of any page dumped its whole
+        # front page of *old* headlines as if they were new -- that's what
+        # sent three stale SED Energy items -- and it wasted tokens shipping
+        # stale headlines to the model. If we can't confirm it's inside the
+        # window, drop it. fetch_ir now works hard to extract a date, so real
+        # new items still carry one.
+        return False
     try:
         dt = dateparser.parse(published_raw)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt >= cutoff
     except (ValueError, OverflowError):
-        return True
+        return False
 
 
 def collect_candidates(companies, cutoff, seen_ids):

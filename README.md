@@ -51,15 +51,40 @@ fungerende på en ekte GitHub Actions-kjøring. Newsweb dekker ikke alt en
 bedrift publiserer (bl.a. ikke-informasjonspliktige pressemeldinger), så
 `src/main.py` henter alltid også selskapets egen IR-side i tillegg.
 
+## Recency / kun siste døgn
+
+Kun saker publisert innenfor tidsvinduet (siden 08:30 Oslo dagen før, se
+under) slippes gjennom. For sider uten RSS-feed scrapes overskrifter, og
+`src/fetch_ir.py` prøver hardt å finne en publiseringsdato ved siden av hver
+overskrift (dato i selve artikkel-URL-en, eller en datostreng i overskriftens
+kort/rad — også norske datoer som «8. juli 2026»). **Klarer vi ikke å datofeste
+en scrapet overskrift, droppes den.** Det er med vilje: tidligere lente koden
+seg kun på dedup, så første gang en ny IR-URL begynte å virke ble hele forsiden
+med *gamle* overskrifter sendt ut som om de var nye (det var det som sendte tre
+gamle SED Energy-saker). Det koster potensielt en sjelden udatert sak, men
+sparer både feilsendinger og token-bruk.
+
+## Token-bruk / kostnad
+
+Token-kostnaden er Anthropic API-kostnad og henger **ikke** sammen med hvor
+koden kjøres — å flytte kjøringen til Google Cloud, Colab e.l. endrer ingenting
+på dette (det bytter bare gratis-runner). Det som styrer token-bruken er hvor
+mange nyhetssaker som sendes til modellen per kjøring. Den store innsparingen
+er derfor recency-filteret over: før datofiltreringen ble hundrevis av gamle,
+udaterte overskrifter sendt til modellen hver kjøring; nå sendes bare det som
+faktisk er datofestet innenfor døgnet — typisk en brøkdel. Vil du kutte mer
+kan man bytte drafting-modellen i `src/draft.py` (`MODEL`) til en billigere
+Claude-modell, på bekostning av litt tekstkvalitet.
+
 ## Kjente begrensninger
 
-- **Blokkert av bot-beskyttelse (403), uansett riktig URL:** Weatherford,
-  Chevron, BP, Ørsted. Disse har WAF/Akamai-beskyttelse som avviser
-  automatiserte requests uansett User-Agent — løses ikke uten en ekte
-  (headless) nettleser, ikke prioritert nå.
-- **URL-er som fortsatt ikke er funnet** (404 selv etter flere forsøk):
-  Transocean (deepwater.com), Noble Corporation, Seadrill, Kongsberg
-  Maritime (kun konsernnivå funnet, ikke Maritime-spesifikt).
+- **Kan fortsatt bli blokkert av bot-beskyttelse (403):** Weatherford,
+  Chevron, BP, Ørsted har WAF/Akamai-beskyttelse som kan avvise automatiserte
+  requests uansett User-Agent. De har nå fått de oppgitte IR-URL-ene (juli
+  2026); om en runner-kjøring viser 403 for disse, krever det en ekte
+  (headless) nettleser å komme forbi — ikke prioritert nå.
+- Transocean, Noble, Seadrill og Kongsberg Maritime har nå fått spesifikke
+  IR-URL-er (juli 2026); disse verifiseres på neste live-kjøring.
 - Noen få selskaper i `config/watchlist.json` mangler fortsatt `ir_url`
   (`null`) — spesielt et par mindre norske Euronext Growth-selskaper.
 - `scripts/probe_urls.py`, `scripts/probe_newsweb_playwright.py` og

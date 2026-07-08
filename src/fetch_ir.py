@@ -11,6 +11,7 @@ JS-rendered and won't yield anything from a plain requests.get(); those
 will show up as empty results and should be logged for follow-up rather
 than silently trusted.
 """
+import re
 from datetime import datetime
 from typing import List, Dict
 from urllib.parse import urljoin
@@ -18,6 +19,7 @@ from urllib.parse import urljoin
 import feedparser
 import requests
 from bs4 import BeautifulSoup
+from dateutil import parser as dateparser
 
 TIMEOUT = 15
 # A self-identifying UA got blocked by several corporate WAFs (Akamai etc.)
@@ -103,13 +105,87 @@ _NAV_JUNK_PATTERNS = (
 )
 
 
+# Norwegian month names dateutil doesn't understand -> English, so a date
+# like "8. juli 2026" on a Norwegian IR page still parses.
+_NO_TO_EN_MONTH = {
+    "januar": "january", "februar": "february", "mars": "march",
+    "mai": "may", "juni": "june", "juli": "july",
+    "oktober": "october", "desember": "december",
+    # april/august/september/november are close enough for dateutil already.
+}
+
+_MONTH_ALT = (
+    "januar|februar|mars|mai|juni|juli|oktober|desember"
+    "|january|february|march|april|may|june|july|august|september|october|november|december"
+    "|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec"
+)
+
+# A plausible date substring sitting next to a headline. Kept deliberately
+# narrow so we only ever hand dateutil a real date fragment (fuzzy parsing a
+# whole headline would happily turn "Q3 2026" or a rig count into a date).
+_DATE_HINT_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}"                                      # 2026-07-08
+    r"|\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}"                     # 08.07.2026 / 8-7-26
+    rf"|\d{{1,2}}\.?\s+(?:{_MONTH_ALT})\.?\s+\d{{4}}"         # 8 July 2026 / 8. juli 2026
+    rf"|(?:{_MONTH_ALT})\.?\s+\d{{1,2}},?\s+\d{{4}}",         # July 8, 2026
+    re.IGNORECASE,
+)
+
+# A date baked into the article URL itself, e.g. /news/2026/07/08/title.
+_HREF_DATE_RE = re.compile(r"(20\d{2})[/\-](\d{1,2})[/\-](\d{1,2})")
+
+
+def _parse_date_string(raw: str):
+    low = raw.lower()
+    for no, en in _NO_TO_EN_MONTH.items():
+        if no in low:
+            low = low.replace(no, en)
+    # ISO (year-first) is unambiguous; dayfirst=True would wrongly swap its
+    # month and day (2026-07-08 -> 7 Aug). Only assume day-first for the
+    # numeric d.m.y forms common on European IR pages.
+    dayfirst = re.match(r"\s*\d{4}-\d{1,2}-\d{1,2}", low) is None
+    try:
+        dt = dateparser.parse(low, dayfirst=dayfirst, fuzzy=True)
+        return dt.isoformat() if dt else None
+    except (ValueError, OverflowError):
+        return None
+
+
+def _extract_published(anchor, href: str):
+    """Best-effort publish date for a scraped headline. Tries a date in the
+    article URL first (most reliable, language-neutral), then a date string
+    in the headline's own/parent/grandparent container. Returns an ISO string
+    or None -- and None means the recency filter drops it, so we never resurface
+    an undated stale headline."""
+    m = _HREF_DATE_RE.search(href or "")
+    if m:
+        y, mo, d = m.groups()
+        try:
+            return datetime(int(y), int(mo), int(d)).isoformat()
+        except ValueError:
+            pass
+    node = anchor
+    for _ in range(3):  # headline scope, then widen to its card / row
+        if node is None:
+            break
+        hint = _DATE_HINT_RE.search(node.get_text(" ", strip=True))
+        if hint:
+            parsed = _parse_date_string(hint.group(0))
+            if parsed:
+                return parsed
+        node = node.parent
+    return None
+
+
 def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
-    """Best-effort, low-confidence fallback: grab anchor tags that look
-    like news headlines. No reliable publish-date extraction here, so
-    downstream code should treat these as 'needs date verification'.
+    """Best-effort fallback for pages with no RSS feed: grab anchor tags that
+    look like news headlines and try to pin a publish date on each (see
+    _extract_published). Undated ones are kept here but get dropped by the
+    recency filter downstream, so stale headlines never reach the model.
     """
     soup = BeautifulSoup(html, "html.parser")
     out = []
+    dated = 0
     seen_urls = set()
     for a in soup.find_all("a", href=True):
         text = a.get_text(strip=True)
@@ -122,16 +198,20 @@ def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
         if full_url in seen_urls:
             continue
         seen_urls.add(full_url)
+        published = _extract_published(a, href)
+        if published:
+            dated += 1
         out.append({
             "title": text,
             "url": full_url,
-            "published": None,  # unknown -- filter step must be conservative
+            "published": published,
             "summary": None,
             "source": f"IR page scrape ({company_id})",
         })
         if len(out) >= 15:
             break
     if out:
-        print(f"[fetch_ir] NOTE: {company_id} used low-confidence HTML scrape fallback "
-              f"(no RSS found, no publish dates) -- verify manually.")
+        print(f"[fetch_ir] NOTE: {company_id} used HTML scrape fallback "
+              f"({dated}/{len(out)} headlines had an extractable date; undated ones "
+              f"are dropped by the recency filter).")
     return out

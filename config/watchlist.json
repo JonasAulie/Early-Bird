@@ -51,7 +51,7 @@
       "category": "major_oil",
       "exchange": "NYSE",
       "newsweb_issuer": null,
-      "ir_url": "https://www.chevron.com/newsroom",
+      "ir_url": "https://www.chevron.com/newsroom/archive?contenttype=press%20release",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -73,7 +73,7 @@
       "category": "major_oil",
       "exchange": "LSE",
       "newsweb_issuer": null,
-      "ir_url": "https://www.bp.com/en/global/corporate/news-and-insights/press-releases.html",
+      "ir_url": "https://www.bp.com/press-and-publications/press-releases",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -194,7 +194,7 @@
       "category": "oilfield_service",
       "exchange": "NASDAQ",
       "newsweb_issuer": null,
-      "ir_url": "https://www.weatherford.com/en/news-and-events/",
+      "ir_url": "https://www.weatherford.com/investor-relations/investor-news-and-events/news/",
       "seb_coverage": false,
       "user_alert_list": true,
       "recommendation": null
@@ -271,7 +271,7 @@
       "category": "seb_coverage_oilfield_service",
       "exchange": "Oslo Bors",
       "newsweb_issuer": "KOMA",
-      "ir_url": "https://www.kongsberg.com/news/",
+      "ir_url": "https://www.kongsberg.com/investor-relations/notifications-and-news/",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
@@ -381,7 +381,7 @@
       "category": "driller",
       "exchange": "NYSE/SIX",
       "newsweb_issuer": null,
-      "ir_url": "https://www.deepwater.com/news",
+      "ir_url": "https://investor.deepwater.com/press-releases/",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Sell"
@@ -414,7 +414,7 @@
       "category": "driller",
       "exchange": "NYSE",
       "newsweb_issuer": null,
-      "ir_url": "https://www.seadrill.com/media/",
+      "ir_url": "https://ir.seadrill.com/news/",
       "seb_coverage": true,
       "user_alert_list": true,
       "recommendation": "Buy"
@@ -513,7 +513,7 @@
       "category": "seb_coverage_renewables",
       "exchange": "Nasdaq Copenhagen",
       "newsweb_issuer": null,
-      "ir_url": "https://orsted.com/en/media",
+      "ir_url": "https://orsted.com/en/investors/news",
       "seb_coverage": true,
       "user_alert_list": false,
       "recommendation": "Buy"
