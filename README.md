@@ -21,37 +21,45 @@ Gå til **Settings → Secrets and variables → Actions** i dette repoet og leg
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
 | `RESEND_API_KEY` | resend.com → API Keys |
-| `FROM_EMAIL` | En adresse på et domene du har **verifisert** i Resend (resend.com/domains). Uten verifisert domene kan Resend kun sende til kontoeierens egen adresse, ikke begge mottakerne. |
+| `FROM_EMAIL` | En adresse på et domene du har **verifisert** i Resend (resend.com/domains). Uten verifisert domene kan Resend kun sende til kontoeierens egen adresse. |
 
-Mottakere (`jonasaulie@gmail.com`, `jonas.aulie@seb.no`) er hardkodet i
-`src/emailer.py` — endre `DEFAULT_RECIPIENTS` der om det skal endres.
+Mottaker er for øyeblikket kun `jonasaulie@gmail.com` (`src/emailer.py`
+`DEFAULT_RECIPIENTS`), siden Resend uten et verifisert domene bare kan sende
+til kontoeierens egen adresse. **Ikke** verifiser `seb.no` i Resend — det er
+SEB sitt bedriftsdomene og krever DNS-endringer bare IT-avdelingen bør gjøre.
+Vil du legge til `jonas.aulie@seb.no` igjen: verifiser et domene du faktisk
+eier selv i Resend, og legg adressen til i `DEFAULT_RECIPIENTS`.
 
 **Sikkerhetsnotat:** Resend-nøkkelen som ble limt inn i chatten bør
 regenereres i Resend-dashbordet før den tas i bruk her, siden den har stått
 i klartekst i en samtale.
 
-## ⚠️ Ting som IKKE er verifisert ennå (viktig)
+## Kjente begrensninger (verifisert på ekte GitHub Actions-kjøring)
 
-Dette ble bygget i et miljø uten internettilgang, så følgende er
-beste-gjetning som **må testes** på en ekte kjøring (bruk "Run workflow"-
-knappen i GitHub Actions-fanen for en manuell test):
-
-1. **Newsweb-endepunktet** i `src/fetch_newsweb.py` (`CANDIDATE_ENDPOINTS`)
-   er en beste gjetning på URL-mønster. Kjør `debug_probe()`-funksjonen der,
-   eller åpne newsweb.oslobors.no i en nettleser med devtools/Network åpent,
-   filtrer på et selskap, og kopiér den faktiske forespørsels-URL-en og
-   svar-formatet inn i `_normalize()`.
-2. **IR-side-URLene** i `config/watchlist.json` er beste gjetning på hvor
-   hvert selskaps pressemeldinger ligger — noen er sikkert feil eller
-   utdaterte, og noen sider er trolig JS-rendret (gir da tomt resultat fra
-   `requests.get`, siden vi ikke kjører en headless browser).
-3. Noen felt i watchlist (`ir_url: null`) mangler helt — spesielt et par av
-   de norske Euronext Growth-selskapene (Noram Drilling, Sea1, Cavendish,
-   SED Energy Holdings, Bonheur, Magnora, Cloudberry, IWS).
-
-Første ordentlige kjøring bør behandles som en debug-runde, ikke en
-produksjonskjøring — sjekk logg-outputen i Actions-fanen for `WARNING`-
-linjer, som forteller nøyaktig hvilke selskaper som ikke ga treff.
+- **Newsweb (Oslo Børs) er en ren JS-app (React SPA).** Alle URL-varianter
+  (base-siden og alle API-gjetninger) returnerer nøyaktig samme tomme HTML-
+  skall — en enkel `requests.get()` kan aldri hente ekte data derfra uten at
+  noen reverse-engineerer de faktiske XHR-kallene appen gjør (krever en ekte
+  nettleser/devtools). `src/fetch_newsweb.py` er derfor for øyeblikket
+  virkningsløs, men koden feiler ikke — `src/main.py` bruker nå alltid også
+  selskapets egen IR-side som fallback for Newsweb-registrerte selskaper.
+- **Blokkert av bot-beskyttelse (403), uansett riktig URL:** Weatherford,
+  Chevron, BP, Ørsted. Disse har WAF/Akamai-beskyttelse som avviser
+  automatiserte requests uansett User-Agent — løses ikke uten en ekte
+  (headless) nettleser, ikke prioritert nå.
+- **URL-er som fortsatt ikke er funnet** (404 selv etter forsøk på riktig
+  sti): Patterson-UTI, Transocean (deepwater.com), Noble Corporation,
+  Seadrill. `ir_url` står som beste gjetning i watchlist.json og bør rettes
+  manuelt om noen finner riktig lenke.
+- **Fikset og verifisert i denne runden:** Eni, Repsol, SBM Offshore,
+  Valaris, Orrön Energy (riktig domene er faktisk orron.com, ikke
+  orronenergy.com).
+- Noen felt i watchlist (`ir_url: null`) mangler helt — spesielt et par av
+  de norske Euronext Growth-selskapene (Noram Drilling, Sea1, Cavendish,
+  SED Energy Holdings, Bonheur, Magnora, Cloudberry, IWS).
+- `scripts/probe_urls.py` er beholdt som et permanent feilsøkingsverktøy —
+  legg til nye kandidat-URL-er der og kjør via en midlertidig
+  workflow_dispatch-jobb for å teste fra en runner med ekte nettilgang.
 
 ## Det denne IKKE dekker (med vilje)
 

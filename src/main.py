@@ -51,10 +51,17 @@ def is_recent_enough(published_raw, cutoff: datetime) -> bool:
 def collect_candidates(companies, cutoff, seen_ids):
     candidates = []
     for company in companies:
+        items = []
         if company.get("newsweb_issuer"):
-            items = fetch_issuer_messages(company["newsweb_issuer"])
-        else:
-            items = fetch_company_news(company["id"], company.get("ir_url"))
+            items.extend(fetch_issuer_messages(company["newsweb_issuer"]))
+        # Newsweb turned out to be a pure JS single-page app (confirmed via
+        # scripts/probe_urls.py -- every URL guess returns the same empty
+        # React shell), so a plain requests.get() never gets real data from
+        # it. Until that's reverse-engineered properly, always also try the
+        # company's own IR page as a fallback/complement rather than treating
+        # newsweb_issuer and ir_url as mutually exclusive.
+        if company.get("ir_url"):
+            items.extend(fetch_company_news(company["id"], company["ir_url"]))
 
         for item in items:
             if not is_recent_enough(item.get("published"), cutoff):

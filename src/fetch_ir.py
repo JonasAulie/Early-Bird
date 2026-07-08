@@ -20,7 +20,16 @@ import requests
 from bs4 import BeautifulSoup
 
 TIMEOUT = 15
-HEADERS = {"User-Agent": "early-bird-bot/1.0 (+contact: jonasaulie@gmail.com)"}
+# A self-identifying UA got blocked by several corporate WAFs (Akamai etc.)
+# in live testing; a realistic browser UA gets past most of them (verified
+# via scripts/probe_urls.py -- see README's "known unresolved" list for the
+# handful that still block bots regardless of UA, e.g. Weatherford).
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,nb;q=0.8",
+}
 
 COMMON_FEED_SUFFIXES = ["/rss", "/feed", "/rss.xml", "/feed.xml", "?format=rss"]
 
