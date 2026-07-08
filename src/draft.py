@@ -64,31 +64,49 @@ def draft_entries(candidate_items: List[Dict], api_key: str = None) -> List[Dict
         },
         json={
             "model": MODEL,
-            "max_tokens": 4096,
+            "max_tokens": 16000,
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_content}],
         },
-        timeout=90,
+        timeout=180,
     )
     resp.raise_for_status()
     payload = resp.json()
     text = "".join(block.get("text", "") for block in payload.get("content", []))
-    return _parse_json_response(text)
+    truncated = payload.get("stop_reason") == "max_tokens"
+    return _parse_json_response(text, truncated)
 
 
-def _parse_json_response(text: str) -> List[Dict]:
+def _parse_json_response(text: str, truncated: bool = False) -> List[Dict]:
     text = text.strip()
     # Be tolerant of the model wrapping the JSON in a code fence.
     if text.startswith("```"):
         text = text.strip("`")
         if text.startswith("json"):
             text = text[4:]
+    text = text.strip()
     try:
         parsed = json.loads(text)
+        return parsed if isinstance(parsed, list) else []
     except json.JSONDecodeError:
-        print("[draft] WARNING: could not parse model response as JSON, dropping this batch")
-        print(text[:2000])
-        return []
-    if not isinstance(parsed, list):
-        return []
-    return parsed
+        pass
+
+    if truncated:
+        # Hit max_tokens mid-array. Salvage whatever complete objects came
+        # before the cut-off rather than throwing away good entries -- trim
+        # back to the last complete object and close the array ourselves.
+        last_complete = text.rfind("},")
+        if last_complete != -1:
+            salvaged = text[: last_complete + 1] + "]"
+            try:
+                parsed = json.loads(salvaged)
+                if isinstance(parsed, list):
+                    print(f"[draft] WARNING: response hit max_tokens; salvaged {len(parsed)} "
+                          f"complete entries from the truncated output")
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+    print("[draft] WARNING: could not parse model response as JSON, dropping this batch")
+    print(text[:2000])
+    return []
