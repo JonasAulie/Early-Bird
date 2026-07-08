@@ -176,10 +176,20 @@ def _parse_date_string(raw: str):
     for no, en in _NO_TO_EN_MONTH.items():
         if no in low:
             low = low.replace(no, en)
-    # ISO (year-first) is unambiguous; dayfirst=True would wrongly swap its
-    # month and day (2026-07-08 -> 7 Aug). Only assume day-first for the
-    # numeric d.m.y forms common on European IR pages.
-    dayfirst = re.match(r"\s*\d{4}-\d{1,2}-\d{1,2}", low) is None
+    # Ambiguous all-numeric dates need a locale guess, since dayfirst only
+    # matters when both the day and month are plain numbers (a named month,
+    # e.g. "July 8, 2026", parses correctly either way). ISO (year-first,
+    # dashes) is unambiguous. Slash-separated numeric dates (7/8/2026) are
+    # the US convention (month-first) -- almost every US IR page (Baker
+    # Hughes, Chevron, Patterson-UTI, etc.) uses this, whereas dot-separated
+    # (08.07.2026) is the European/Norwegian convention (day-first). Getting
+    # this backwards silently swaps day and month for any date past the 12th.
+    if re.match(r"\s*\d{4}-\d{1,2}-\d{1,2}", low):
+        dayfirst = False
+    elif "/" in low:
+        dayfirst = False
+    else:
+        dayfirst = True
     try:
         dt = dateparser.parse(low, dayfirst=dayfirst, fuzzy=True)
         return dt.isoformat() if dt else None

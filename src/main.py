@@ -120,6 +120,9 @@ def main():
 
     candidates = collect_candidates(companies, cutoff, seen_ids)
     print(f"[main] {len(candidates)} candidate items after recency+dedup filtering")
+    for c in candidates:
+        print(f"[main]   candidate: company={c['company']!r} published={c.get('published')!r} "
+              f"title={c['title'][:100]!r}")
 
     if not candidates:
         print("[main] nothing new, skipping email")
@@ -127,6 +130,10 @@ def main():
 
     entries = draft_entries(candidates)
     print(f"[main] {len(entries)} entries kept after relevance filtering")
+    kept_urls = {e.get("url") for e in entries}
+    for c in candidates:
+        if c["url"] not in kept_urls:
+            print(f"[main]   dropped by relevance filter: company={c['company']!r} title={c['title'][:100]!r}")
 
     if entries:
         html = render_html(entries)
