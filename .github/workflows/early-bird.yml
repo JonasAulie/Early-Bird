@@ -1,0 +1,47 @@
+name: Early Bird scan
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # UTC times covering Oslo 06:32 / 07:02 / 07:32 / 08:02 across both
+    # CET (winter, UTC+1) and CEST (summer, UTC+2). schedule_guard.py
+    # no-ops any firing that isn't actually close to a target Oslo time,
+    # so this looks like more firings than we want but most are cheap skips.
+    - cron: "32 4 * * *"
+    - cron: "2 5 * * *"
+    - cron: "32 5 * * *"
+    - cron: "2 6 * * *"
+    - cron: "32 6 * * *"
+    - cron: "2 7 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+        env:
+          SETUPTOOLS_USE_DISTUTILS: stdlib
+
+      - name: Run Early Bird scan
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+        run: python -m src.main
+
+      - name: Persist dedup state
+        run: |
+          git config user.name "early-bird-bot"
+          git config user.email "actions@github.com"
+          git add state/seen.json
+          git diff --cached --quiet || git commit -m "Update seen-items state [skip ci]"
+          git push

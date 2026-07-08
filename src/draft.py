@@ -1,0 +1,94 @@
+"""Relevance filtering + Early Bird-style drafting via the Claude API.
+
+Takes the raw candidate items scraped by fetch_newsweb / fetch_ir and asks
+Claude to (a) throw out anything irrelevant and (b) write a headline + a
+short (2-4 sentence) comment for what's left, in the same voice as SEB's
+Early Bird sector notes.
+
+Grounding: the model is only given the title/summary/source text that was
+actually scraped -- it is explicitly instructed not to invent numbers,
+dates or details that aren't present in that text. For headline-only items
+(no summary), the comment must stay generic rather than fabricate specifics.
+"""
+import json
+import os
+from typing import List, Dict
+
+import requests
+
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+MODEL = "claude-sonnet-5"
+
+SYSTEM_PROMPT = """You are drafting candidate entries for "Early Bird", a daily sector note an \
+equity research analyst sends to institutional portfolio managers covering energy \
+(oil, oilfield services, offshore drilling, and related renewables/maritime names).
+
+You will be given a JSON list of raw news items (title, optional summary, source, company, \
+published date, url). Your job:
+
+1. DROP anything that is not relevant. Relevant means:
+   - It's about a company in the analyst's coverage universe or a major energy company, AND
+   - It's a contract/award of meaningful size, a major sector event (M&A, regulatory, macro data \
+release, large discovery/development decision, big personnel/strategy news), or something else a \
+portfolio manager would consider a genuine value-add to know about before the market opens.
+   - Routine/trivial items (minor personnel changes, generic ESG fluff, small immaterial contracts, \
+duplicate coverage of the same event) should be dropped.
+2. For each item you keep, write:
+   - "headline": short, in the style "Topic/Company (Reco if known) - what happened", matching the \
+SEB Early Bird house style, e.g. "Offshore drilling - Constellation rig Amaralina Star approved in Brazil" \
+or "Noble (Sell) - Receives LOA from Petronas for six plus three campaign".
+   - "comment": 2-4 factual sentences in the same terse, analyst tone as the examples. State only \
+facts present in the input title/summary -- DO NOT invent numbers, dates, dollar amounts, or details \
+that are not in the source text. If the source only gives a headline with no further detail, keep the \
+comment short and say only what the headline supports; do not pad with invented specifics.
+3. Output STRICT JSON: a list of objects with keys "headline", "comment", "company", "url", \
+"source_title" (the original title, for traceability). No prose outside the JSON.
+"""
+
+
+def draft_entries(candidate_items: List[Dict], api_key: str = None) -> List[Dict]:
+    api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+    if not candidate_items:
+        return []
+
+    user_content = json.dumps(candidate_items, ensure_ascii=False, indent=2)
+
+    resp = requests.post(
+        ANTHROPIC_API_URL,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "max_tokens": 4096,
+            "system": SYSTEM_PROMPT,
+            "messages": [{"role": "user", "content": user_content}],
+        },
+        timeout=90,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    text = "".join(block.get("text", "") for block in payload.get("content", []))
+    return _parse_json_response(text)
+
+
+def _parse_json_response(text: str) -> List[Dict]:
+    text = text.strip()
+    # Be tolerant of the model wrapping the JSON in a code fence.
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.startswith("json"):
+            text = text[4:]
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        print("[draft] WARNING: could not parse model response as JSON, dropping this batch")
+        print(text[:2000])
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return parsed
