@@ -11,6 +11,7 @@
 
 Run with: python -m src.main
 """
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from dateutil import parser as dateparser
@@ -89,9 +90,12 @@ def render_html(entries) -> str:
 def main():
     now = datetime.now(timezone.utc)
 
-    if not should_run_now(now):
+    force = os.environ.get("FORCE_RUN", "").lower() == "true"
+    if not force and not should_run_now(now):
         print("[main] outside of the 4 target Oslo-time slots, skipping (DST-safe no-op)")
         return
+    if force:
+        print("[main] FORCE_RUN set, bypassing the Oslo-time slot check")
 
     cutoff = lookback_cutoff(now)
 
