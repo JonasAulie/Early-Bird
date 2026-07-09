@@ -16,5 +16,5 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install --no-build-isolation -r requirements.txt
           playwright install --with-deps chromium
-      - name: Probe Aramco + Subsea7
-        run: python -m scripts.probe_aramco_subsea7
+      - name: Probe Subsea7 challenge page
+        run: python -m scripts.probe_subsea7_challenge
