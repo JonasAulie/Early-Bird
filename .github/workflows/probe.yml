@@ -17,5 +17,5 @@ jobs:
           pip install --no-build-isolation -r requirements.txt
       - name: Install headless browser (Playwright Chromium)
         run: playwright install --with-deps chromium
-      - name: Probe Quartr API docs
-        run: python -m scripts.probe_quartr_api_docs
+      - name: Probe Quartr web app network traffic
+        run: python -m scripts.probe_quartr_webapp_network
