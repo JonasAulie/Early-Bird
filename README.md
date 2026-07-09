@@ -172,24 +172,43 @@ verifisert at Baker Hughes vil gi konsistente treff i produksjon.
 
 ## Kjente begrensninger
 
+Full gjennomgang av alle ~58 selskaper (`scripts/probe_watchlist_coverage.py`,
+juli 2026) viste 52/58 fungerende. De resterende:
+
+- **Transocean** — `investor.deepwater.com` hadde et server-side problem
+  (`net::ERR_HTTP2_PROTOCOL_ERROR`/timeout, både med vanlig request og
+  headless). Fikset: byttet til `www.deepwater.com/news/`, som svarer 200 OK.
+- **SBM Offshore** — scrapet feil URL. `/newsroom/` er bare en landingsside
+  uten faktiske overskrifter (kun navigasjonsmeny i markupen, selv rendret);
+  den ekte pressemeldingslisten ligger på `/investors/press-releases/`, som
+  ble funnet ved å dumpe alle lenker på siden. Fikset.
+- **Baker Hughes** — fortsatt uløst. Ren JS-app; innhold *finnes* der (bekreftet
+  ved en enkeltstående DOM-dump), men gjentatt automatisert henting gir
+  inkonsekvente resultater — mistenkt adferdsbasert bot-beskyttelse (se
+  `scripts/probe_bakerhughes.py`).
+- **Saudi Aramco** — serveren er treg/ustabil (gjentatte timeouts), ikke et
+  URL- eller kode-problem.
+- **Chevron** — intermitterende WAF-blokkering; headless-fallback hjelper i
+  de fleste tilfeller (se WAF-punktet under), men ikke garantert hver gang.
+- **Subsea7** — IR-siden gir ingen treff, men selskapet er uansett fullt
+  dekket via Newsweb (`SUBC`), så dette er lav prioritet.
 
 - **WAF-blokkering (403):** Weatherford, Chevron, BP, Ørsted har
   WAF/Akamai-beskyttelse som kan avvise en vanlig `requests.get()` uansett
   User-Agent. `fetch_ir.py` prøver nå headless-nettleseren (samme mekanisme
   som for JS-rendrede sider) også når den vanlige forespørselen feiler med
   403 — en ekte nettleser har en ekte TLS/JS-fingeravtrykk som ofte kommer
-  forbi enklere botdeteksjon. Ikke garantert mot alle WAF-er (Akamai Bot
-  Manager kan i prinsippet fortsatt oppdage automatisering), men verdt å
-  prøve før man gir opp helt.
-- Transocean, Noble, Seadrill og Kongsberg Maritime har nå fått spesifikke
-  IR-URL-er (juli 2026); disse verifiseres på neste live-kjøring.
+  forbi enklere botdeteksjon. Bekreftet virker for Weatherford. Ikke
+  garantert mot alle WAF-er (Akamai Bot Manager kan i prinsippet fortsatt
+  oppdage automatisering), men verdt å prøve før man gir opp helt.
 - Noen få selskaper i `config/watchlist.json` mangler fortsatt `ir_url`
   (`null`) — spesielt et par mindre norske Euronext Growth-selskaper.
 - `scripts/probe_urls.py`, `scripts/probe_newsweb_playwright.py`,
-  `scripts/probe_bakerhughes.py` og `scripts/discover_ir_urls.py` er beholdt
-  som permanente feilsøkingsverktøy — legg til nye kandidater der og kjør via
-  en midlertidig workflow_dispatch-jobb for å teste fra en runner med ekte
-  nettilgang.
+  `scripts/probe_bakerhughes.py`, `scripts/probe_watchlist_coverage.py` og
+  `scripts/discover_ir_urls.py` er beholdt som permanente feilsøkingsverktøy
+  — kjør `probe_watchlist_coverage.py` via en midlertidig
+  workflow_dispatch-jobb når som helst for å få en fersk statusliste over
+  hvilke selskaper som faktisk gir treff akkurat nå.
 
 ## Relevanskriterier (hva som tas med / droppes)
 
