@@ -185,31 +185,41 @@ spørsmålet er: «ville dette endret hvordan en forvalter tenker om aksjen,
 en peer eller sektoren i dag?» — altså value-add nyhetsflyt som kan bevege
 en kurs.
 
+Filteret er bevisst satt til å heller ta med for mye enn for lite — det er
+verre å miste en sak analytikeren trengte enn å ha med én ekstra linje han
+skummer forbi på to sekunder.
+
 **Tas MED:** (a) kontrakter/tildelinger/ordre/tenders/rammeavtaler/LOI/MOU
 — uansett størrelse, også uten oppgitt verdi hvis omfang/motpart er
 vesentlig; (b) M&A og porteføljegrep (oppkjøp, frasalg, fusjoner, farm-in/
 out, vesentlige eierandelsendringer); (c) field developments / E&P-
 milepæler (FID, funn, first oil/gas, produksjonsstart, reserveoppdateringer,
 lisensrunder, PUD-godkjenning); (d) kapital-/balansegrep (tilbakekjøp,
-utbytteendring, emisjoner, refinansiering, rating); (e) guiding & vesentlige
-trading-data (profit warnings, guiding opp/ned, trading-oppdateringer med
-NYE tall vs forventning, rig-count); (f) rigg/OSV-markedsdata (rater,
+utbytteendring, emisjoner, refinansiering, rating); (e) **kvartalstall,
+trading updates og driftsoppdateringer som inneholder faktiske tall**
+(produksjonsvolum, inntekt/EBITDA, prisoppnåelse, rigg-/flåtetall, ordre-
+reserve/backlog, guiding) — tas med uansett om tallene er «overraskende»
+eller ikke, en forvalter vil ha kvartalstallene uansett (f.eks. «Vår Energi:
+Second quarter 2026 trading update» eller «OKEA second quarter 2026 trading
+update» — har den tall, er den med); (f) rigg/OSV-markedsdata (rater,
 kontrakter, utnyttelse, nybygg/salg); (g) regulatorisk/juridisk/politisk med
 reell finansiell effekt (OPEC, sanksjoner, bøter, skatt); (h) store
 driftsforstyrrelser (utfall, force majeure, streik); (i) sektor/makro selv
 uten ett navngitt selskap.
 
-**Droppes:** ren publisering av kvartals-/årsrapport eller invitasjon til
-resultatpresentasjon («save the date») — selve publiseringen er ikke en
-nyhet i seg selv, kun tas med hvis den bærer en reell overraskelse/nytt
-vesentlig datapunkt; rutinemessige primærinnsidemeldinger og flaggemeldinger
-(med mindre uvanlig store); aksjekapital-/stemmerett-administrasjon, GF-
-innkallinger og administrative filinger; mindre personalendringer (under
-C-nivå); generisk ESG/PR/markedsføring/sponsing; duplikater av samme sak.
+**Droppes (holdes bevisst smal):** kun rene møteinnkallinger uten tall —
+«Invitation to Q2 2026 results presentation», «save the date»,
+finanskalender — altså null datapunkter. Har saken ett eneste konkret tall,
+er den IKKE i denne kategorien, den hører til (e) og skal med. Utover det:
+rutinemessige primærinnsidemeldinger og flaggemeldinger (med mindre uvanlig
+store); aksjekapital-/stemmerett-administrasjon, GF-innkallinger og
+administrative filinger; mindre personalendringer (under C-nivå); generisk
+ESG/PR/markedsføring/sponsing; duplikater av samme sak.
 
-Ved tvil om en åpenbar kontrakt/M&A/field-development-sak: ta den MED. Det
-var nettopp en slik som tidligere feilaktig ble droppet (TGS' salg til
-Enverus) før kriteriene ble gjort eksplisitte.
+Ved tvil: ta saken MED. Det har skjedd to ganger at filteret var for
+strengt og droppet noe det ikke skulle (TGS' salg til Enverus, og senere
+Vår Energi/OKEA sine trading updates) — kriteriene over er skrevet for å
+unngå akkurat det, med eksplisitt bias mot inklusjon.
 
 ## Drafting-stil
 

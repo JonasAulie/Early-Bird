@@ -27,13 +27,13 @@ You will be given a JSON list of raw news items (title, optional summary, source
 recommendation, published date, url). Your job:
 
 1. Decide what to KEEP vs DROP. The bar is a single question: "would this change how a \
-portfolio manager thinks about the stock, a peer, or the sector today?" Keep only value-add news \
-flow -- events that move (or could move) a share price or the market. Be inclusive within the \
-categories below and ruthless outside them. When a genuinely material item is borderline between \
-two categories, keep it; do not drop a real contract/M&A/field-development item just because it is \
-also, say, mentioned inside a results release.
+portfolio manager thinks about the stock, a peer, or the sector today?" Keep value-add news flow -- \
+events that move (or could move) a share price or the market. Bias strongly toward keeping: it is far \
+worse to drop something the analyst actually needed than to include one extra item he skims past in \
+two seconds. When a genuinely material item is borderline between two categories, or borderline \
+between two of the categories below, keep it.
 
-   KEEP if it is any of these (this is the value-add list):
+   KEEP if it is any of these (this is the value-add list -- read broadly, not narrowly):
    a. Contracts / awards / orders / tenders won / frame agreements / LOIs / MOUs with commercial \
 substance -- ANY size, and INCLUDE even when the value is undisclosed if the scope or counterparty \
 is notable. (e.g. a multi-year supply or power-generation agreement, a rig contract, a subsea award.)
@@ -45,9 +45,12 @@ first oil/gas, production start or ramp, material reserve/resource updates, lice
 PDO/plan approvals.
    d. Capital & balance-sheet actions that move value: new or expanded buybacks, dividend \
 initiation/change, capital raises, material refinancing or debt issuance, credit-rating changes.
-   e. Guidance & material trading data: profit warnings, guidance up/downgrades, and trading/ \
-operational updates that carry NEW numbers versus expectations (like a Q2 trading update flagging \
-weaker price achievement, or monthly rig-count/fleet-status data). See point 1b below on results.
+   e. Quarterly/interim results, trading updates and operational updates THAT CARRY ACTUAL FIGURES -- \
+production volumes, revenue/EBITDA/earnings numbers, price achievement, rig/fleet counts, backlog, \
+order intake, guidance, or any other concrete operational or financial datapoint. KEEP these whenever \
+real numbers are present, even if nothing in them looks surprising -- a portfolio manager wants the \
+quarter's numbers regardless of whether they beat or missed. This includes routine-sounding releases \
+like "[Company] second quarter 2026 trading update" -- if it has figures, it's in.
    f. Driller / OSV market data points: new contracts, day rates, extensions/terminations, \
 utilisation or fleet changes, newbuild or vessel sale-and-purchase transactions.
    g. Regulatory / legal / political events with real financial impact: approvals, sanctions, fines, \
@@ -57,11 +60,11 @@ production or earnings.
    i. Sector / macro items even without one named company: cross-company M&A, large tenders, \
 oil-price-moving data, big inventory surprises.
 
-   DROP (routine noise, NOT value-add):
-   - The bare fact that a quarterly/annual report or a presentation WILL be, or has just been, \
-published -- including "invitation to Q2 results presentation" / "save the date" items. Publishing \
-results is not itself news. (Only keep a results/update release when it carries a genuine surprise \
-or material new datapoint per (e) -- and then the comment must state that specific datapoint.)
+   DROP (routine noise, NOT value-add -- keep this list narrow):
+   - A pure announcement that a results presentation/webcast WILL happen, with no figures attached \
+-- "Invitation to Q2 2026 results presentation", "save the date", financial calendar notices. These \
+carry zero data, unlike (e) above. If the item has even one concrete figure in it, it is NOT this \
+category -- it's (e), and it stays in.
    - Routine primary-insider dealing notices ("meldepliktig handel primaerinnsider" / "mandatory \
 notification of trade") and holdings / voting-rights (flagging) notices -- UNLESS unusually large \
 or a clear activist/strategic build.
