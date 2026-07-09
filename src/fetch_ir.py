@@ -60,13 +60,17 @@ def fetch_company_news(company_id: str, ir_url: str) -> List[Dict]:
 
     # Fall back to scraping the listing page itself.
     items = _scrape_listing(ir_url, resp.text, company_id)
-    if items:
+    if items and any(it.get("published") for it in items):
         return items
 
-    # Both the feed and the plain-HTML scrape found nothing -- likely a
-    # client-side-rendered SPA (a plain GET only sees the app shell). Try
-    # again with a real browser before giving up on this company entirely.
-    return _fetch_via_headless_browser(ir_url, company_id)
+    # Either the feed/plain-HTML scrape found nothing at all (likely a
+    # client-side-rendered SPA, a plain GET only sees the app shell), or it
+    # found anchors but none with an extractable date -- e.g. Baker Hughes'
+    # investor-platform page 200s on a plain GET but the real dated headline
+    # list is populated by JS after load, so a plain scrape only picks up
+    # undated nav links. Either way, try a real browser before giving up.
+    headless_items = _fetch_via_headless_browser(ir_url, company_id)
+    return headless_items or items
 
 
 def _discover_feed(base_url: str, html: str):
