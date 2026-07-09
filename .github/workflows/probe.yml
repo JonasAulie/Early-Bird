@@ -15,5 +15,5 @@ jobs:
         run: |
           pip install --upgrade pip setuptools wheel
           pip install --no-build-isolation -r requirements.txt
-      - name: Probe missed items (NorAm, Equinor)
-        run: python -m scripts.probe_missed_items
+      - name: Probe Newsweb list endpoint size/pagination
+        run: python -m scripts.probe_newsweb_list_size
