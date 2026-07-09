@@ -59,6 +59,16 @@ were disclosed» på en melding som faktisk oppga kjøpesum og earn-out).
 `scripts/probe_newsweb_message_body.py`), så drafteren har de faktiske
 tallene å jobbe med.
 
+**Viktig: `list?issuer=X` uten datoparametre kan stille returnere tomt selv
+når selskapet har publisert nylig.** Oppdaget da Equinor og NorAm Drilling
+sine sanne saker (bekreftet i den ekte Early Bird-utgaven) ga 0 treff fra
+det udaterte kallet, mens samme kall med `&fromDate=...&toDate=...` ga
+ekte data (`scripts/probe_newsweb_list_size.py`). Dette virker som en aktiv
+API-ustabilitet, ikke noe vi kan stole på. `fetch_issuer_messages()` sender
+derfor alltid med et eksplisitt 10-dagers datospenn
+(`LOOKBACK_DAYS` i `fetch_newsweb.py`) i stedet for å stole på
+standardoppførselen.
+
 **Viktig: `newsweb_issuer`-koden må være verifisert riktig, ellers får du
 feilkoblet innhold.** Oppdaget via `scripts/probe_newsweb_issuer_mismatch.py`:
 fire ticker-koder i watchlisten (`KOMA` for Kongsberg Maritime, `SOMAR` for

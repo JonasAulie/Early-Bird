@@ -23,7 +23,19 @@ endpoint (see scripts/probe_newsweb_message_body.py):
 
     GET https://api3.oslo.oslobors.no/v1/newsreader/message?messageId=677857
     -> {"data": {"message": {"body": "OSLO, Norway (8 July 2026) - ...", ...}}}
+
+IMPORTANT: calling /list?issuer=X with no date range has been observed to
+silently return an EMPTY messages array even when the issuer has published
+recently (confirmed for EQNR and NORAM via scripts/probe_newsweb_list_size.py
+-- messages that were confirmed to exist, e.g. Equinor's Q2 trading update,
+were completely missing from the undated call, while the exact same issuer
+with an explicit &fromDate=...&toDate=... range returned real data). This
+looks like an active bug/instability in the API's own default-range
+behaviour, not something we can rely on. We therefore always pass an
+explicit date range (see LOOKBACK_DAYS below) rather than trusting the
+undated call.
 """
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict
 
 import requests
@@ -35,6 +47,10 @@ HEADERS = {
                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     "Accept": "application/json",
 }
+# Generously wider than main.py's actual recency cutoff (1-3 days) -- the
+# recency filter downstream narrows it back down, this just protects against
+# ever missing something because the date window itself was too tight.
+LOOKBACK_DAYS = 10
 
 
 def fetch_issuer_messages(issuer: str) -> List[Dict]:
@@ -42,7 +58,10 @@ def fetch_issuer_messages(issuer: str) -> List[Dict]:
     given Newsweb issuer code. Returns [] (and prints a warning) on any
     failure rather than raising, so one bad company doesn't kill the run.
     """
-    url = f"{API_BASE}/list?issuer={issuer}"
+    today = datetime.now(timezone.utc).date()
+    from_date = (today - timedelta(days=LOOKBACK_DAYS)).isoformat()
+    to_date = today.isoformat()
+    url = f"{API_BASE}/list?issuer={issuer}&fromDate={from_date}&toDate={to_date}"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
         resp.raise_for_status()
