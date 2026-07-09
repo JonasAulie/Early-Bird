@@ -1,86 +1,56 @@
-"""One-off diagnostic for the final 6 companies that returned ZERO items
-in scripts/probe_watchlist_coverage.py:
+"""One-off diagnostic for the final remaining ZERO-item companies from
+scripts/probe_watchlist_coverage.py.
 
-  chevron, saudiaramco, bakerhughes, subsea7 (has Newsweb, low priority),
-  sbmoffshore, transocean
+v2: Transocean fixed (www.deepwater.com/news/ works, investor.deepwater.com
+has server-side issues). SBM Offshore's newsroom page returns 200 with real
+content (201KB) via plain requests.get(), but _scrape_listing() still finds
+0 headline-shaped anchors -- unlike a bot-block or JS-shell case, this means
+the page's real headline markup doesn't match our generic heuristic (plain
+<a href> with >=15 chars of visible text). Dump the actual anchor tags found
+on the page to see what shape the real headlines are in.
 
-Transocean's investor.deepwater.com fails with net::ERR_HTTP2_PROTOCOL_ERROR
-in both plain requests AND headless Chromium -- unusual, worth isolating
-whether it's an HTTP/2-specific server quirk (force HTTP/1.1) or a dead
-URL entirely. SBM Offshore hasn't been investigated at all yet. This probes
-both directly, plus tries a couple of alternate URL candidates for each.
+Also checks bakerhughes and chevron again (previously flagged as
+inconsistent/intermittent) to see current state.
 
 Run via a throwaway workflow_dispatch job on a runner with real network
 access.
 """
 import requests
+from bs4 import BeautifulSoup
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-}
+from src.fetch_ir import HEADERS, TIMEOUT, _NAV_JUNK_PATTERNS
 
-CANDIDATES = {
-    "transocean": [
-        "https://investor.deepwater.com/press-releases/",
-        "https://investor.deepwater.com/press-releases",
-        "https://www.deepwater.com/news/",
-        "https://www.deepwater.com/",
-    ],
-    "sbmoffshore": [
-        "https://www.sbmoffshore.com/newsroom/",
-        "https://www.sbmoffshore.com/media/",
-        "https://www.sbmoffshore.com/investors/",
-        "https://www.sbmoffshore.com/investors/news-events/",
-    ],
-}
+URL = "https://www.sbmoffshore.com/newsroom/"
 
 
-def probe_requests(url):
-    # Force HTTP/1.1 by disabling HTTP/2 -- requests uses HTTP/1.1 by
-    # default already (no h2 support without a special adapter), so this
-    # tells us whether the ERR_HTTP2_PROTOCOL_ERROR seen in Playwright is
-    # specific to HTTP/2 negotiation.
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=True)
-        print(f"  requests.get -> {resp.status_code}  final_url={resp.url}  len={len(resp.text)}")
-        return resp.text
-    except requests.RequestException as e:
-        print(f"  requests.get -> ERROR: {e}")
-        return None
+def dump_anchors():
+    resp = requests.get(URL, headers=HEADERS, timeout=TIMEOUT)
+    print(f"GET {URL} -> {resp.status_code}  len={len(resp.text)}")
+    soup = BeautifulSoup(resp.text, "html.parser")
+    anchors = soup.find_all("a", href=True)
+    print(f"total <a href> tags: {len(anchors)}")
 
+    long_text = [a for a in anchors if len(a.get_text(strip=True)) >= 15]
+    print(f"<a href> with >=15 chars text: {len(long_text)}")
+    print("\nfirst 20 anchors with >=15 chars text (before junk filter):")
+    for a in long_text[:20]:
+        text = a.get_text(strip=True)
+        is_junk = any(p in text.lower() for p in _NAV_JUNK_PATTERNS)
+        print(f"  junk={is_junk}  href={a['href'][:70]!r}  text={text[:70]!r}")
 
-def probe_headless_http1(url):
-    from playwright.sync_api import sync_playwright
-    try:
-        with sync_playwright() as p:
-            # --disable-http2 forces the browser to negotiate HTTP/1.1 only,
-            # to check if that avoids the protocol error seen with default
-            # (HTTP/2-enabled) Chromium.
-            browser = p.chromium.launch(args=["--disable-http2"])
-            page = browser.new_page(user_agent=HEADERS["User-Agent"])
-            page.goto(url, timeout=15000, wait_until="domcontentloaded")
-            html = page.content()
-            browser.close()
-        print(f"  headless(--disable-http2) -> rendered {len(html)} bytes")
-        return html
-    except Exception as e:
-        print(f"  headless(--disable-http2) -> ERROR: {e}")
-        return None
+    print("\nfirst 20 anchors total (incl. short text) to see real headline shape:")
+    for a in anchors[:20]:
+        text = a.get_text(strip=True)
+        print(f"  len={len(text):3d}  href={a['href'][:70]!r}  text={text[:70]!r}")
+
+    # Maybe headlines live in a heading tag *inside* the anchor, or the
+    # anchor wraps an image with no text and the heading is a sibling --
+    # check for h1-h4 tags near article-like containers.
+    headings = soup.find_all(["h1", "h2", "h3", "h4"])
+    print(f"\ntotal heading tags (h1-h4): {len(headings)}")
+    for h in headings[:15]:
+        print(f"  <{h.name}> text={h.get_text(strip=True)[:70]!r}")
 
 
 if __name__ == "__main__":
-    for company_id, urls in CANDIDATES.items():
-        print(f"=== {company_id} ===")
-        for url in urls:
-            print(f" {url}")
-            probe_requests(url)
-        print()
-
-    print("=== HTTP/1.1-forced headless retry for the currently-configured URLs ===")
-    for company_id, urls in CANDIDATES.items():
-        url = urls[0]
-        print(f"{company_id}: {url}")
-        probe_headless_http1(url)
-        print()
+    dump_anchors()
