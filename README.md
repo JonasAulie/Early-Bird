@@ -140,35 +140,23 @@ Claude-modell, på bekostning av litt tekstkvalitet.
 ## JS-rendrede IR-sider (headless-nettleser-fallback)
 
 En vanlig `requests.get()` ser bare skallet en ren JavaScript-app (SPA)
-sender ut før JavaScript kjører — bekreftet for Baker Hughes
-(`bakerhughes.com/company/news` ga 848 bytes tomt skall, ingen overskrifter
-i det hele tatt) via `scripts/probe_bakerhughes.py`. `src/fetch_ir.py` prøver
-derfor, kun hvis både RSS-feed og vanlig HTML-scrape finner null treff, å
-rendre siden med en ekte (headless) Chromium-nettleser via Playwright og
-kjøre samme scrape-logikk på det rendrede resultatet
-(`_fetch_via_headless_browser`). GitHub Actions-workflowen installerer
-Chromium (`playwright install --with-deps chromium`) i hvert kjøre.
+sender ut før JavaScript kjører. `src/fetch_ir.py` prøver derfor, hvis RSS-feed
+og vanlig HTML-scrape enten finner null treff eller bare finner treff uten
+noen ekstraherbar dato, å rendre siden med en ekte (headless) Chromium-
+nettleser via Playwright og kjøre samme scrape-logikk på det rendrede
+resultatet (`_fetch_via_headless_browser`). GitHub Actions-workflowen
+installerer Chromium (`playwright install --with-deps chromium`) i hvert
+kjøre.
 
-Fallback-en trigges bevisst konservativt (kun ved *totalt* null treff, ikke
-bare manglende dato) for å holde ekstra kjøretid nede — de fleste selskaper
-som allerede fungerer via feed/scrape berøres ikke. Rendring er bevist å
-fungere i seg selv (en enkeltstående DOM-dump fant 726 lenker og bekreftet
-ekte innhold på siden), og prøver på nytt én gang med lengre ventetid før
+Fallback-en trigges ved null *daterte* treff (ikke bare null treff totalt) —
+dette fanger opp sider som svarer 200 OK på en vanlig request med reelt
+innhold, men der innholdet bare er navigasjonslenker (udaterte) fordi selve
+overskriftslisten lastes inn via JS etter sidelasting (bekreftet for Baker
+Hughes, se under). Rendring prøver på nytt én gang med lengre ventetid før
 den gir opp, siden en fast ventetid av og til er for kort. Sjekk loggen for
 `[fetch_ir] NOTE: ... needed the headless-browser fallback` for å se hvilke
 selskaper som faktisk trengte den, og `WARNING: headless browser fetch
 failed` hvis selv det ikke klarte å hente noe.
-
-**Ærlig status på Baker Hughes spesifikt:** i testing herfra ga gjentatte
-automatiserte besøk til samme side i rask rekkefølge (5 kjøringer på under
-10 minutter) inkonsistente resultater — én kjøring fant alt innhold
-(inkl. en kjent testsak), andre fant ingenting med identisk kode. Mest
-sannsynlige forklaring er adferdsbasert bot-beskyttelse som strammer til
-etter gjentatte besøk fra samme kilde på kort tid (ikke uvanlig for store
-corporate WAF-er). De virkelige produksjonskjøringene skjer bare 3x/dag med
-timers mellomrom, ikke i rask rekkefølge som denne testingen, så reell
-oppførsel kan avvike fra det som ble observert her — men det er ikke fullt
-verifisert at Baker Hughes vil gi konsistente treff i produksjon.
 
 ## Kjente begrensninger
 
@@ -182,16 +170,30 @@ juli 2026) viste 52/58 fungerende. De resterende:
   uten faktiske overskrifter (kun navigasjonsmeny i markupen, selv rendret);
   den ekte pressemeldingslisten ligger på `/investors/press-releases/`, som
   ble funnet ved å dumpe alle lenker på siden. Fikset.
-- **Baker Hughes** — fortsatt uløst. Ren JS-app; innhold *finnes* der (bekreftet
-  ved en enkeltstående DOM-dump), men gjentatt automatisert henting gir
-  inkonsekvente resultater — mistenkt adferdsbasert bot-beskyttelse (se
-  `scripts/probe_bakerhughes.py`).
-- **Saudi Aramco** — serveren er treg/ustabil (gjentatte timeouts), ikke et
-  URL- eller kode-problem.
-- **Chevron** — intermitterende WAF-blokkering; headless-fallback hjelper i
-  de fleste tilfeller (se WAF-punktet under), men ikke garantert hver gang.
-- **Subsea7** — IR-siden gir ingen treff, men selskapet er uansett fullt
-  dekket via Newsweb (`SUBC`), så dette er lav prioritet.
+- **Baker Hughes** — fikset. To separate problemer: (1) feil URL —
+  `bakerhughes.com/company/news` er en ren JS-app under inkonsekvent
+  bot-beskyttelse, mens den faktiske pressemeldingslisten ligger på en helt
+  separat IR-plattform-subdomene, `investors.bakerhughes.com/news`, som svarer
+  200 OK på en vanlig `requests.get()`. (2) en generell ordningsbug i
+  `_scrape_listing()` — koden brøt ut av lenke-skanningen ved de første 15
+  treffene i DOM-rekkefølge, så på sider der navigasjonsmenyen (alltid udatert)
+  kommer før de ekte overskriftene i HTML-en, ble alle reelle, daterte
+  overskrifter presset ut før de i det hele tatt ble nådd. Fikset ved å samle
+  alle kandidater uten tidlig brudd og sortere daterte treff først. I tillegg
+  gikk `fetch_company_news()` for tidlig ut med udaterte scrape-treff i stedet
+  for å falle videre til headless-nettleseren — fikset til å prøve headless
+  når scrapet finner null *daterte* treff, ikke bare null treff totalt.
+  Bekreftet: gir nå ekte daterte overskrifter i produksjon.
+- **Chevron** — fikset. Feil URL — den konfigurerte lenken hadde et
+  query-parameter (`?contenttype=press%20release`) som ga en side med null
+  daterte overskrifter; den enklere `www.chevron.com/newsroom` gir 20/20
+  daterte kandidater inkludert ferske saker.
+- **Saudi Aramco** — fortsatt uløst. Serveren er treg/ustabil (gjentatte
+  timeouts på alle testede URL-varianter), ikke et URL- eller kode-problem
+  som kan fikses herfra.
+- **Subsea7** — IR-siden gir ingen treff på noen testet URL-variant (alle gir
+  identisk, tomt sideinnhold), men selskapet er uansett fullt dekket via
+  Newsweb (`SUBC`), så dette er lav prioritet og ikke videre undersøkt.
 
 - **WAF-blokkering (403):** Weatherford, Chevron, BP, Ørsted har
   WAF/Akamai-beskyttelse som kan avvise en vanlig `requests.get()` uansett
