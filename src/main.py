@@ -19,7 +19,7 @@ from dateutil import parser as dateparser
 from src.watchlist import load_companies
 from src.state import load_seen, save_seen, item_id
 from src.fetch_newsweb import fetch_issuer_messages
-from src.fetch_ir import fetch_company_news
+from src.fetch_ir import fetch_company_news, fetch_article_body
 from src.draft import draft_entries
 from src.emailer import send_digest
 from src.schedule_guard import should_run_now
@@ -127,6 +127,16 @@ def main():
     if not candidates:
         print("[main] nothing new, skipping email")
         return
+
+    # IR-scrape candidates only ever carry a bare headline (see
+    # fetch_ir._scrape_listing -- summary is always None); Newsweb items
+    # already have a full disclosure body attached at fetch time. Fetch the
+    # real article text now, for this small already-filtered candidate list
+    # only, so the drafter has enough grounding to write a proper multi-
+    # sentence comment instead of a one-line placeholder.
+    for c in candidates:
+        if not c.get("summary"):
+            c["summary"] = fetch_article_body(c["url"], label=c["company"])
 
     entries = draft_entries(candidates)
     print(f"[main] {len(entries)} entries kept after relevance filtering")

@@ -305,19 +305,17 @@ HEADLESS_CONTENT_TIMEOUT_MS = 15000
 HEADLESS_SETTLE_WAIT_MS = 1500
 
 
-def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
-    """Last-resort fallback for IR pages that are pure client-side apps (a
-    plain requests.get() only ever sees an empty shell -- confirmed for
-    Baker Hughes via scripts/probe_bakerhughes.py). Renders the page with a
-    real (headless) Chromium and re-runs the same anchor-tag scrape against
-    the resulting DOM. Only reached when the feed + plain-HTML paths both
-    found nothing, so this shouldn't run for the majority of companies.
+def _render_page_headless(url: str, label: str) -> str:
+    """Renders a page with a real (headless) Chromium and returns the fully
+    loaded HTML, or None on failure. Shared by the listing-page fallback and
+    fetch_article_body() below -- both need "wait for JS to actually
+    populate the page" logic, just applied to different content.
     """
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print(f"[fetch_ir] WARNING: playwright not installed, skipping headless fallback for {company_id}")
-        return []
+        print(f"[fetch_ir] WARNING: playwright not installed, skipping headless fallback for {label}")
+        return None
 
     try:
         with sync_playwright() as p:
@@ -329,7 +327,7 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
                 # forever) even once the content is painted. Wait for the DOM,
                 # then poll until the news list has actually populated (anchor
                 # count crosses the threshold) rather than guessing a sleep.
-                page.goto(ir_url, timeout=HEADLESS_NAV_TIMEOUT_MS, wait_until="domcontentloaded")
+                page.goto(url, timeout=HEADLESS_NAV_TIMEOUT_MS, wait_until="domcontentloaded")
                 try:
                     page.wait_for_function(
                         "n => document.querySelectorAll('a').length > n",
@@ -341,11 +339,24 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
                     # scrape whatever rendered anyway (some real pages are small).
                     pass
                 page.wait_for_timeout(HEADLESS_SETTLE_WAIT_MS)
-                html = page.content()
+                return page.content()
             finally:
                 browser.close()
     except Exception as e:
-        print(f"[fetch_ir] WARNING: headless browser fetch failed for {company_id} ({ir_url}): {e}")
+        print(f"[fetch_ir] WARNING: headless browser fetch failed for {label} ({url}): {e}")
+        return None
+
+
+def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
+    """Last-resort fallback for IR pages that are pure client-side apps (a
+    plain requests.get() only ever sees an empty shell -- confirmed for
+    Baker Hughes via scripts/probe_bakerhughes.py). Renders the page with a
+    real (headless) Chromium and re-runs the same anchor-tag scrape against
+    the resulting DOM. Only reached when the feed + plain-HTML paths both
+    found nothing, so this shouldn't run for the majority of companies.
+    """
+    html = _render_page_headless(ir_url, company_id)
+    if not html:
         return []
 
     items = _scrape_listing(ir_url, html, company_id)
@@ -356,3 +367,94 @@ def _fetch_via_headless_browser(ir_url: str, company_id: str) -> List[Dict]:
         print(f"[fetch_ir] NOTE: {company_id} headless-browser fallback rendered the page "
               f"but still found no headline-shaped links -- may need per-site tuning.")
     return items
+
+
+_ARTICLE_BODY_MAX_CHARS = 4000
+
+
+def fetch_article_body(url: str, label: str = "") -> str:
+    """Fetches the full text of a single article/press-release page.
+
+    IR-scrape candidates only ever carry the anchor's headline text (see
+    _scrape_listing -- summary is always None), which forces the drafter to
+    write a one-line comment even for a story with real substance. This is
+    called only for the small number of candidates that survive the
+    recency+dedup filter (a handful per run, not the ~20-headline listing
+    scrape), so a slower per-page fetch here is an acceptable tradeoff for
+    giving the model enough grounding to write a proper multi-sentence
+    comment instead of a bare-headline placeholder.
+    """
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        resp.raise_for_status()
+        text = _extract_article_text(resp.text)
+        if text and len(text) > 200:
+            return text
+    except requests.RequestException:
+        pass
+
+    # Plain request failed, or returned too little (or nothing but a cookie
+    # banner -- see _extract_article_text) to be the real article body --
+    # try headless as a last resort, mirroring the WAF/SPA fallback used for
+    # the listing scrape.
+    html = _render_page_headless(url, label or url)
+    if html:
+        text = _extract_article_text(html)
+        if text:
+            return text
+    return None
+
+
+# Cookie-consent banners are near-universal on corporate IR sites and often
+# aren't tagged with any "nav"/"footer"/"cookie" class our decompose list
+# would catch -- confirmed for Baker Hughes' investor-platform page, where
+# the banner was the single largest <p> on the page and got returned as the
+# "article body" for a Sabine Pass LNG contract announcement. Filter any
+# element whose own class/id names it as consent/legal chrome, and as a
+# content-level backstop (in case a page hides the banner in an unlabeled
+# div), reject the whole extraction if what's left still reads like one.
+_CONSENT_CLASS_KEYWORDS = ("cookie", "consent", "gdpr", "onetrust", "cc-window", "cc-banner")
+_COOKIE_BANNER_PHRASES = (
+    "cookie settings", "cookie notice", "cookie policy", "we use cookies",
+    "storing of active cookies", "reject all non-essential cookies",
+)
+
+
+def _extract_article_text(html: str) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "nav", "header", "footer", "aside", "form"]):
+        tag.decompose()
+    # find_all() materializes the full match list up front, but consent SDKs
+    # commonly nest several class/id-carrying elements inside each other
+    # (e.g. OneTrust's #onetrust-consent-sdk wrapping #onetrust-banner-sdk) --
+    # decomposing an ancestor also destroys descendants already in that same
+    # list, so a later iteration can hit an already-decomposed tag (its
+    # .attrs is cleared to None, so .get() raises). Skip anything already
+    # decomposed rather than crash on it.
+    for tag in soup.find_all(attrs={"class": True}):
+        if getattr(tag, "decomposed", False):
+            continue
+        classes = " ".join(tag.get("class", [])).lower()
+        if any(kw in classes for kw in _CONSENT_CLASS_KEYWORDS):
+            tag.decompose()
+    for tag in soup.find_all(attrs={"id": True}):
+        if getattr(tag, "decomposed", False):
+            continue
+        if any(kw in tag.get("id", "").lower() for kw in _CONSENT_CLASS_KEYWORDS):
+            tag.decompose()
+
+    # Prefer a semantic <article> tag or a common CMS "content" container if
+    # present -- keeps nav/footer boilerplate out of the extracted text on
+    # pages where those elements aren't cleanly tagged as nav/footer.
+    container = soup.find("article")
+    if not container:
+        container = soup.find(attrs={"class": lambda c: c and "content" in " ".join(c).lower()})
+    paragraphs = (container or soup).find_all("p")
+    text = " ".join(p.get_text(" ", strip=True) for p in paragraphs)
+    text = " ".join(text.split())
+    if not text:
+        return None
+    lowered = text.lower()
+    if any(phrase in lowered for phrase in _COOKIE_BANNER_PHRASES):
+        return None
+    return text[:_ARTICLE_BODY_MAX_CHARS]

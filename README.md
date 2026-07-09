@@ -23,12 +23,23 @@ Gå til **Settings → Secrets and variables → Actions** i dette repoet og leg
 | `RESEND_API_KEY` | resend.com → API Keys |
 | `FROM_EMAIL` | En adresse på et domene du har **verifisert** i Resend (resend.com/domains). Uten verifisert domene kan Resend kun sende til kontoeierens egen adresse. |
 
-Mottaker er for øyeblikket kun `jonasaulie@gmail.com` (`src/emailer.py`
-`DEFAULT_RECIPIENTS`), siden Resend uten et verifisert domene bare kan sende
-til kontoeierens egen adresse. **Ikke** verifiser `seb.no` i Resend — det er
-SEB sitt bedriftsdomene og krever DNS-endringer bare IT-avdelingen bør gjøre.
-Vil du legge til `jonas.aulie@seb.no` igjen: verifiser et domene du faktisk
-eier selv i Resend, og legg adressen til i `DEFAULT_RECIPIENTS`.
+Mottakere er `jonasaulie@gmail.com` og `jonas.aulie@seb.no`
+(`src/emailer.py` `DEFAULT_RECIPIENTS`). Hver mottaker sendes som et eget
+Resend-kall (ikke én e-post med to mottakere) nettopp fordi Resend uten et
+**verifisert sende-domene** begrenser den delte sandbox-avsenderen
+(`onboarding@resend.dev`) til å bare kunne sende til kontoeierens egen
+adresse — hvis SEB-adressen blir avvist av den begrensningen, skal ikke det
+også blokkere Gmail-leveransen. Sjekk kjøreloggen for
+`[emailer] ERROR ... sending to jonas.aulie@seb.no` for å se om SEB-adressen
+faktisk kom gjennom eller ble avvist.
+
+Merk: begrensningen er på **sende**-domenet, ikke mottaker — SEB-domenet
+trenger ingen verifisering for å kunne *motta* e-post. **Ikke** verifiser
+`seb.no` i Resend uansett — det er SEB sitt bedriftsdomene og krever
+DNS-endringer bare IT-avdelingen bør gjøre. For å garantere at SEB-adressen
+faktisk mottar e-posten (ikke bare forsøkes), må et domene *du selv eier* bli
+verifisert som sende-domene i Resend og satt som `FROM_EMAIL` — uten det vil
+SEB-leveransen mest sannsynlig bli avvist av Resend hver gang.
 
 **Sikkerhetsnotat:** Resend-nøkkelen som ble limt inn i en tidligere chat bør
 regenereres i Resend-dashbordet før den tas i bruk her, siden den har stått
@@ -278,6 +289,33 @@ unngå akkurat det, med eksplisitt bias mot inklusjon.
 Early Bird-utgaver (format, informasjonstetthet, når man avslutter med en
 kort vurdering som "Neutral for Equinor." eller "Share price positive.").
 Oppdater few-shot-eksemplene der om stilen bør justeres videre.
+
+Gjeldende regler (håndhevet i system-promptet):
+- **Tone**: nøytral, faktatett. Ingen adjektiver eller fyllord ("impressive",
+  "notably" osv.) — la tallene og fakta bære innholdet.
+- **Setningsoppbygning**: tidsangivelse → konkret hendelse → tall/kontekst,
+  i den rekkefølgen både innad i setninger og gjennom avsnittet.
+- **Overskrift**: `Selskap (Rec) – kort beskrivelse`. Har vi ikke dekning på
+  selskapet (recommendation er null), droppes parentesen helt.
+- **Lengde**: typisk 3–6 setninger, men det er et mål, ikke et hardt tak i
+  noen retning — flere setninger hvis kilden faktisk har nok substans til at
+  en forvalter eller megler trenger det, færre (ned til én setning) hvis
+  kilden ikke har mer å si. Hver setning skal være value-add; ingen
+  fyllsetninger som bare gjentar overskriften.
+
+**Artikkeltekst, ikke bare overskrift**: `fetch_ir._scrape_listing()`
+fanger kun overskriftteksten fra lenken, aldri brødtekst — det ga tidligere
+kunstig korte kommentarer (én setning) for IR-scrapede saker, selv når den
+faktiske pressemeldingen hadde nok stoff til 3–6 setninger. `main.py` henter
+derfor nå den fulle artikkelteksten (`fetch_ir.fetch_article_body()`) for
+hver kandidat som overlever recency+dedup-filtreringen — altså en håndfull
+saker per kjøring, ikke hele ~20-overskrifters listen per selskap, så
+kostnaden holdes lav. Newsweb-saker har alltid hatt full brødtekst allerede
+(via `_fetch_message_body()`); dette tetter det samme hullet for
+IR-scrape-kilder. Hvis artikkelhentingen feiler (samme WAF/JS-hindre som
+listescrapet kan møte på), faller kommentaren tilbake til én kort setning
+fra overskriften alene — modellen får aldri lov til å dikte opp detaljer for
+å fylle ut lengden.
 
 ## Det denne IKKE dekker (med vilje)
 
