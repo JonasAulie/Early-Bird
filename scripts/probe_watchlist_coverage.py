@@ -11,22 +11,29 @@ complementary sources -- a company can be "fine" overall via Newsweb even
 if its IR path returns zero, so cross-reference against newsweb_issuer
 before treating a zero-IR result as a real gap.
 
+Pass company IDs as CLI args to check only specific companies (fast
+re-verification after a targeted fix) instead of the full watchlist.
+
 Run via a throwaway workflow_dispatch job on a runner with real network
-access. Takes a while (up to ~10s per company that needs the headless
-fallback), so expect several minutes total for all ~50 IR-having companies.
+access. Full sweep takes a while (up to ~10s per company that needs the
+headless fallback), so expect several minutes total for all ~50
+IR-having companies.
 """
+import sys
 import time
 
 from src.fetch_ir import fetch_company_news
 from src.watchlist import load_companies
 
 
-def probe():
+def probe(only_ids=None):
     companies = load_companies()
     zero = []
     ok = []
     for c in companies:
         if not c.get("ir_url"):
+            continue
+        if only_ids and c["id"] not in only_ids:
             continue
         start = time.monotonic()
         try:
@@ -40,6 +47,8 @@ def probe():
         status = "OK" if items else "ZERO"
         print(f"{c['id']:24s} {status:5s} n={len(items):3d} dated={dated:3d} "
               f"({elapsed:5.1f}s) newsweb={c.get('newsweb_issuer')}")
+        for it in items[:3]:
+            print(f"    published={it.get('published')!r}  title={it['title'][:80]!r}")
         if not items:
             zero.append((c["id"], c.get("newsweb_issuer"), c["ir_url"]))
         else:
@@ -53,4 +62,5 @@ def probe():
 
 
 if __name__ == "__main__":
-    probe()
+    ids = set(sys.argv[1:]) or None
+    probe(ids)
