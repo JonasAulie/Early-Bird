@@ -238,15 +238,24 @@ def _extract_published(anchor, href: str):
     return None
 
 
+_SCRAPE_OUTPUT_CAP = 20
+
+
 def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
     """Best-effort fallback for pages with no RSS feed: grab anchor tags that
     look like news headlines and try to pin a publish date on each (see
     _extract_published). Undated ones are kept here but get dropped by the
     recency filter downstream, so stale headlines never reach the model.
+
+    Scans every matching anchor on the page (no early break) and sorts dated
+    candidates first before capping the output -- on many real IR pages
+    (confirmed for Baker Hughes' investor-platform page) the nav menu's
+    undated links appear before the actual headline links in the DOM, so
+    breaking at the first N matches was silently starving every real,
+    dated headline out of the result.
     """
     soup = BeautifulSoup(html, "html.parser")
-    out = []
-    dated = 0
+    candidates = []
     seen_urls = set()
     for a in soup.find_all("a", href=True):
         text = a.get_text(strip=True)
@@ -260,17 +269,19 @@ def _scrape_listing(ir_url: str, html: str, company_id: str) -> List[Dict]:
             continue
         seen_urls.add(full_url)
         published = _extract_published(a, href)
-        if published:
-            dated += 1
-        out.append({
+        candidates.append({
             "title": text,
             "url": full_url,
             "published": published,
             "summary": None,
             "source": f"IR page scrape ({company_id})",
         })
-        if len(out) >= 15:
-            break
+
+    # Dated candidates first (real headlines), undated ones after (mostly nav
+    # links) -- stable sort preserves each group's original DOM order.
+    candidates.sort(key=lambda it: it["published"] is None)
+    out = candidates[:_SCRAPE_OUTPUT_CAP]
+    dated = sum(1 for it in out if it["published"])
     if out:
         print(f"[fetch_ir] NOTE: {company_id} used HTML scrape fallback "
               f"({dated}/{len(out)} headlines had an extractable date; undated ones "
