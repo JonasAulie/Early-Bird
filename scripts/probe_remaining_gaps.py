@@ -1,56 +1,61 @@
-"""One-off diagnostic for the final remaining ZERO-item companies from
-scripts/probe_watchlist_coverage.py.
-
-v2: Transocean fixed (www.deepwater.com/news/ works, investor.deepwater.com
-has server-side issues). SBM Offshore's newsroom page returns 200 with real
-content (201KB) via plain requests.get(), but _scrape_listing() still finds
-0 headline-shaped anchors -- unlike a bot-block or JS-shell case, this means
-the page's real headline markup doesn't match our generic heuristic (plain
-<a href> with >=15 chars of visible text). Dump the actual anchor tags found
-on the page to see what shape the real headlines are in.
-
-Also checks bakerhughes and chevron again (previously flagged as
-inconsistent/intermittent) to see current state.
+"""One-off diagnostic for SBM Offshore: plain requests.get() only returns
+nav-menu markup (1 heading tag total, no headline links) -- the newsroom
+list is client-side rendered. But our headless fallback (up to ~36s worst
+case: 20s nav timeout + 15s anchor-count poll + 1.5s settle) still found 0
+anchors past the threshold. This renders the page with a longer, unbounded
+wait and dumps what actually shows up, to see if the news list ever
+populates or if something else (e.g. a cookie-consent overlay blocking
+rendering, or an infinite-scroll/lazy-load pattern) is going on.
 
 Run via a throwaway workflow_dispatch job on a runner with real network
 access.
 """
-import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
-from src.fetch_ir import HEADERS, TIMEOUT, _NAV_JUNK_PATTERNS
+from src.fetch_ir import HEADERS
 
 URL = "https://www.sbmoffshore.com/newsroom/"
 
 
-def dump_anchors():
-    resp = requests.get(URL, headers=HEADERS, timeout=TIMEOUT)
-    print(f"GET {URL} -> {resp.status_code}  len={len(resp.text)}")
-    soup = BeautifulSoup(resp.text, "html.parser")
-    anchors = soup.find_all("a", href=True)
-    print(f"total <a href> tags: {len(anchors)}")
+def probe():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(user_agent=HEADERS["User-Agent"])
+        page.goto(URL, timeout=25000, wait_until="domcontentloaded")
 
-    long_text = [a for a in anchors if len(a.get_text(strip=True)) >= 15]
-    print(f"<a href> with >=15 chars text: {len(long_text)}")
-    print("\nfirst 20 anchors with >=15 chars text (before junk filter):")
-    for a in long_text[:20]:
-        text = a.get_text(strip=True)
-        is_junk = any(p in text.lower() for p in _NAV_JUNK_PATTERNS)
-        print(f"  junk={is_junk}  href={a['href'][:70]!r}  text={text[:70]!r}")
+        # Generous wait, checking anchor count at each step to see the
+        # actual render timeline instead of guessing one fixed value.
+        for wait_s in (2, 5, 10, 15):
+            page.wait_for_timeout(wait_s * 1000)
+            html = page.content()
+            soup = BeautifulSoup(html, "html.parser")
+            anchors = soup.find_all("a", href=True)
+            headings = soup.find_all(["h1", "h2", "h3", "h4"])
+            print(f"after +{wait_s}s: {len(anchors)} anchors, {len(headings)} headings, "
+                  f"html_len={len(html)}")
 
-    print("\nfirst 20 anchors total (incl. short text) to see real headline shape:")
-    for a in anchors[:20]:
-        text = a.get_text(strip=True)
-        print(f"  len={len(text):3d}  href={a['href'][:70]!r}  text={text[:70]!r}")
+        title = page.title()
+        print(f"\nfinal page title: {title!r}")
 
-    # Maybe headlines live in a heading tag *inside* the anchor, or the
-    # anchor wraps an image with no text and the heading is a sibling --
-    # check for h1-h4 tags near article-like containers.
-    headings = soup.find_all(["h1", "h2", "h3", "h4"])
-    print(f"\ntotal heading tags (h1-h4): {len(headings)}")
-    for h in headings[:15]:
-        print(f"  <{h.name}> text={h.get_text(strip=True)[:70]!r}")
+        # Dump final anchor list to see the real shape once rendered.
+        final_html = page.content()
+        soup = BeautifulSoup(final_html, "html.parser")
+        anchors = soup.find_all("a", href=True)
+        print(f"\nfinal anchor count: {len(anchors)}")
+        for a in anchors[:40]:
+            text = a.get_text(strip=True)
+            if len(text) >= 10:
+                print(f"  len={len(text):3d}  href={a['href'][:70]!r}  text={text[:70]!r}")
+
+        # Check for common cookie-consent / overlay blockers.
+        text_all = soup.get_text(" ", strip=True).lower()
+        for signal in ("accept cookies", "cookie consent", "we use cookies", "manage preferences"):
+            if signal in text_all:
+                print(f"\nPossible cookie/consent overlay signal found: {signal!r}")
+
+        browser.close()
 
 
 if __name__ == "__main__":
-    dump_anchors()
+    probe()
