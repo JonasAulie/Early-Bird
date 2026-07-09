@@ -41,16 +41,21 @@ def lookback_cutoff(now_utc: datetime) -> datetime:
 
 def is_recent_enough(published_raw, cutoff: datetime) -> bool:
     if not published_raw:
-        # Unknown publish date (HTML-scrape fallback) -- let dedup state be
-        # the safety net instead of dropping it here.
-        return True
+        # No verifiable publish date. Relying on dedup alone (the old
+        # behaviour) meant the first crawl of any page dumped its whole
+        # front page of *old* headlines as if they were new -- that's what
+        # sent three stale SED Energy items -- and it wasted tokens shipping
+        # stale headlines to the model. If we can't confirm it's inside the
+        # window, drop it. fetch_ir now works hard to extract a date, so real
+        # new items still carry one.
+        return False
     try:
         dt = dateparser.parse(published_raw)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt >= cutoff
     except (ValueError, OverflowError):
-        return True
+        return False
 
 
 def collect_candidates(companies, cutoff, seen_ids):
@@ -115,6 +120,9 @@ def main():
 
     candidates = collect_candidates(companies, cutoff, seen_ids)
     print(f"[main] {len(candidates)} candidate items after recency+dedup filtering")
+    for c in candidates:
+        print(f"[main]   candidate: company={c['company']!r} published={c.get('published')!r} "
+              f"title={c['title'][:100]!r}")
 
     if not candidates:
         print("[main] nothing new, skipping email")
@@ -122,6 +130,12 @@ def main():
 
     entries = draft_entries(candidates)
     print(f"[main] {len(entries)} entries kept after relevance filtering")
+    kept_urls = {e.get("url") for e in entries}
+    for e in entries:
+        print(f"[main]   kept: headline={e.get('headline')!r}")
+    for c in candidates:
+        if c["url"] not in kept_urls:
+            print(f"[main]   dropped by relevance filter: company={c['company']!r} title={c['title'][:100]!r}")
 
     if entries:
         html = render_html(entries)
@@ -134,10 +148,20 @@ def main():
             # run's state save is what prevents these items from piling up.
             print(f"[main] ERROR: failed to send digest email: {e}", file=sys.stderr)
 
-    # Mark every fetched candidate (not just the ones the model kept) as
-    # seen, so irrelevant items don't get re-evaluated every run either.
+    # Mark fetched candidates as seen so irrelevant IR-scrape noise doesn't
+    # get re-evaluated (and re-cost tokens) every run. But Newsweb items are
+    # rare, official regulatory disclosures, not high-volume noise -- a single
+    # LLM relevance-filter miss must not permanently bury a real corporate
+    # disclosure with no way to recover (this is exactly what happened to a
+    # TGS divestment announcement: the model wrongly dropped it once, it got
+    # marked seen anyway, and it silently vanished for good). So only mark a
+    # Newsweb item seen once it's actually been kept (and thus sent) -- a
+    # missed one gets another chance on the next run until it ages out of the
+    # recency window.
     for c in candidates:
-        seen_ids.add(c["_id"])
+        is_newsweb = c["source"].startswith("Newsweb")
+        if not is_newsweb or c["url"] in kept_urls:
+            seen_ids.add(c["_id"])
     save_seen(seen_ids)
 
 

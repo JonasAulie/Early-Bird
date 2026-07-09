@@ -51,25 +51,213 @@ fungerende på en ekte GitHub Actions-kjøring. Newsweb dekker ikke alt en
 bedrift publiserer (bl.a. ikke-informasjonspliktige pressemeldinger), så
 `src/main.py` henter alltid også selskapets egen IR-side i tillegg.
 
+List-endepunktet over gir bare tittel, ikke selve meldingsteksten -- det
+gjorde tidlige kommentarer generiske/feil (f.eks. «no transaction details
+were disclosed» på en melding som faktisk oppga kjøpesum og earn-out).
+`src/fetch_newsweb.py` henter nå i tillegg full meldingstekst per sak fra
+`.../v1/newsreader/message?messageId=<id>` (funnet via
+`scripts/probe_newsweb_message_body.py`), så drafteren har de faktiske
+tallene å jobbe med.
+
+**Viktig: `list?issuer=X` uten datoparametre kan stille returnere tomt selv
+når selskapet har publisert nylig.** Oppdaget da Equinor og NorAm Drilling
+sine sanne saker (bekreftet i den ekte Early Bird-utgaven) ga 0 treff fra
+det udaterte kallet, mens samme kall med `&fromDate=...&toDate=...` ga
+ekte data (`scripts/probe_newsweb_list_size.py`). Dette virker som en aktiv
+API-ustabilitet, ikke noe vi kan stole på. `fetch_issuer_messages()` sender
+derfor alltid med et eksplisitt 10-dagers datospenn
+(`LOOKBACK_DAYS` i `fetch_newsweb.py`) i stedet for å stole på
+standardoppførselen.
+
+**Viktig: `newsweb_issuer`-koden må være verifisert riktig, ellers får du
+feilkoblet innhold.** Oppdaget via `scripts/probe_newsweb_issuer_mismatch.py`:
+fire ticker-koder i watchlisten (`KOMA` for Kongsberg Maritime, `SOMAR` for
+Solstad Maritime, `SED` for SED Energy Holdings, `AKA` for Akastor) var ikke
+gjenkjent av API-et, som da falt tilbake på en generisk/urelatert 69-post
+liste (samme respons for alle fire, med et helt annet selskap øverst) i
+stedet for et tomt resultat. Dette kunne ha ført til at en reell børsmelding
+fra ett selskap ble sendt ut merket med et helt annet selskaps navn. Alle
+fire er nå satt til `newsweb_issuer: null` (de dekkes fortsatt via sin
+`ir_url`) inntil noen finner og verifiserer de faktiske Newsweb-tickerne
+deres — for Kongsberg Maritime er det mulig det ikke finnes en egen
+børsnotering i det hele tatt (det er en forretningsenhet under Kongsberg
+Gruppen ASA). Bekreftet korrekte: `EQNR`, `TGS`, `NEL`, `NORAM`, `SUBC`,
+`AKRBP`, `VAR`.
+
+## Recency / kun siste døgn
+
+Kun saker publisert innenfor tidsvinduet (siden 08:30 Oslo dagen før, se
+under) slippes gjennom. For sider uten RSS-feed scrapes overskrifter, og
+`src/fetch_ir.py` prøver hardt å finne en publiseringsdato ved siden av hver
+overskrift (dato i selve artikkel-URL-en, `<time datetime>`/`data-date`-
+attributter, eller en datostreng i overskriftens kort/rad — også norske
+datoer som «8. juli 2026»). **Klarer vi ikke å datofeste en scrapet
+overskrift, droppes den.** Det er med vilje: tidligere lente koden seg kun på
+dedup, så første gang en ny IR-URL begynte å virke ble hele forsiden med
+*gamle* overskrifter sendt ut som om de var nye (det var det som sendte tre
+gamle SED Energy-saker). Det koster potensielt en sjelden udatert sak, men
+sparer både feilsendinger og token-bruk.
+
+Datotolkning respekterer regional konvensjon: skråstrek-datoer (`7/8/2026`)
+tolkes måned-først (amerikansk IR-side-konvensjon), punktum-datoer
+(`08.07.2026`) tolkes dag-først (europeisk/norsk konvensjon), ISO
+(`2026-07-08`) er alltid entydig. Før dette ble alle ikke-ISO datoer tolket
+dag-først, som stille kunne bytte om dag og måned på amerikanske
+pressemeldinger datert forbi den 12. i måneden.
+
+## Dedup: hvorfor en LLM-feilvurdering ikke lenger begraver en sak permanent
+
+`src/main.py` markerer hentede saker som «sett» i `state/seen.json` slik at
+de ikke evalueres på nytt (og koster tokens) hver kjøring. For IR-scraping
+(høyt volum, mest støy) skjer dette uansett hva modellen konkluderer. For
+**Newsweb**-saker (sjeldne, offisielle børsmeldinger) markeres en sak derimot
+kun som «sett» hvis den faktisk ble beholdt av relevansfilteret (og dermed
+sendt) — ikke bare fordi den ble hentet. Årsak: en reell børsmelding fra TGS
+(salg av virksomhet til Enverus) ble hentet korrekt og besto recency-sjekken,
+men relevansfilteret (Claude) feilvurderte den som irrelevant i én kjøring —
+og den gamle koden markerte den som «sett» uansett, så den forsvant permanent
+og kunne aldri dukke opp igjen i noen senere kjøring. Nå får en Newsweb-sak
+en ny sjanse på neste kjøring helt til den enten blir sendt eller faller ut
+av tidsvinduet naturlig (1–3 dager).
+
+Hvis noe fortsatt mangler: `src/main.py` logger nå hver kandidat som ble
+hentet (selskap, dato, tittel) og alt relevansfilteret droppet — les
+run-loggen på GitHub Actions for å se nøyaktig hva som skjedde med en
+konkret sak, i stedet for å måtte skrive et eget probe-script.
+
+## Token-bruk / kostnad
+
+Token-kostnaden er Anthropic API-kostnad og henger **ikke** sammen med hvor
+koden kjøres — å flytte kjøringen til Google Cloud, Colab e.l. endrer ingenting
+på dette (det bytter bare gratis-runner). Det som styrer token-bruken er hvor
+mange nyhetssaker som sendes til modellen per kjøring. Den store innsparingen
+er derfor recency-filteret over: før datofiltreringen ble hundrevis av gamle,
+udaterte overskrifter sendt til modellen hver kjøring; nå sendes bare det som
+faktisk er datofestet innenfor døgnet — typisk en brøkdel. Vil du kutte mer
+kan man bytte drafting-modellen i `src/draft.py` (`MODEL`) til en billigere
+Claude-modell, på bekostning av litt tekstkvalitet.
+
+## JS-rendrede IR-sider (headless-nettleser-fallback)
+
+En vanlig `requests.get()` ser bare skallet en ren JavaScript-app (SPA)
+sender ut før JavaScript kjører. `src/fetch_ir.py` prøver derfor, hvis RSS-feed
+og vanlig HTML-scrape enten finner null treff eller bare finner treff uten
+noen ekstraherbar dato, å rendre siden med en ekte (headless) Chromium-
+nettleser via Playwright og kjøre samme scrape-logikk på det rendrede
+resultatet (`_fetch_via_headless_browser`). GitHub Actions-workflowen
+installerer Chromium (`playwright install --with-deps chromium`) i hvert
+kjøre.
+
+Fallback-en trigges ved null *daterte* treff (ikke bare null treff totalt) —
+dette fanger opp sider som svarer 200 OK på en vanlig request med reelt
+innhold, men der innholdet bare er navigasjonslenker (udaterte) fordi selve
+overskriftslisten lastes inn via JS etter sidelasting (bekreftet for Baker
+Hughes, se under). Rendring prøver på nytt én gang med lengre ventetid før
+den gir opp, siden en fast ventetid av og til er for kort. Sjekk loggen for
+`[fetch_ir] NOTE: ... needed the headless-browser fallback` for å se hvilke
+selskaper som faktisk trengte den, og `WARNING: headless browser fetch
+failed` hvis selv det ikke klarte å hente noe.
+
 ## Kjente begrensninger
 
-- **Blokkert av bot-beskyttelse (403), uansett riktig URL:** Weatherford,
-  Chevron, BP, Ørsted. Disse har WAF/Akamai-beskyttelse som avviser
-  automatiserte requests uansett User-Agent — løses ikke uten en ekte
-  (headless) nettleser, ikke prioritert nå.
-- **URL-er som fortsatt ikke er funnet** (404 selv etter flere forsøk):
-  Transocean (deepwater.com), Noble Corporation, Seadrill, Kongsberg
-  Maritime (kun konsernnivå funnet, ikke Maritime-spesifikt).
+Full gjennomgang av alle ~58 selskaper (`scripts/probe_watchlist_coverage.py`,
+juli 2026) viste 52/58 fungerende. De resterende:
+
+- **Transocean** — `investor.deepwater.com` hadde et server-side problem
+  (`net::ERR_HTTP2_PROTOCOL_ERROR`/timeout, både med vanlig request og
+  headless). Fikset: byttet til `www.deepwater.com/news/`, som svarer 200 OK.
+- **SBM Offshore** — scrapet feil URL. `/newsroom/` er bare en landingsside
+  uten faktiske overskrifter (kun navigasjonsmeny i markupen, selv rendret);
+  den ekte pressemeldingslisten ligger på `/investors/press-releases/`, som
+  ble funnet ved å dumpe alle lenker på siden. Fikset.
+- **Baker Hughes** — fikset. To separate problemer: (1) feil URL —
+  `bakerhughes.com/company/news` er en ren JS-app under inkonsekvent
+  bot-beskyttelse, mens den faktiske pressemeldingslisten ligger på en helt
+  separat IR-plattform-subdomene, `investors.bakerhughes.com/news`, som svarer
+  200 OK på en vanlig `requests.get()`. (2) en generell ordningsbug i
+  `_scrape_listing()` — koden brøt ut av lenke-skanningen ved de første 15
+  treffene i DOM-rekkefølge, så på sider der navigasjonsmenyen (alltid udatert)
+  kommer før de ekte overskriftene i HTML-en, ble alle reelle, daterte
+  overskrifter presset ut før de i det hele tatt ble nådd. Fikset ved å samle
+  alle kandidater uten tidlig brudd og sortere daterte treff først. I tillegg
+  gikk `fetch_company_news()` for tidlig ut med udaterte scrape-treff i stedet
+  for å falle videre til headless-nettleseren — fikset til å prøve headless
+  når scrapet finner null *daterte* treff, ikke bare null treff totalt.
+  Bekreftet: gir nå ekte daterte overskrifter i produksjon.
+- **Chevron** — fikset. Feil URL — den konfigurerte lenken hadde et
+  query-parameter (`?contenttype=press%20release`) som ga en side med null
+  daterte overskrifter; den enklere `www.chevron.com/newsroom` gir 20/20
+  daterte kandidater inkludert ferske saker.
+- **Saudi Aramco** — fortsatt uløst. Serveren er treg/ustabil (gjentatte
+  timeouts på alle testede URL-varianter), ikke et URL- eller kode-problem
+  som kan fikses herfra.
+- **Subsea7** — IR-siden gir ingen treff på noen testet URL-variant (alle gir
+  identisk, tomt sideinnhold), men selskapet er uansett fullt dekket via
+  Newsweb (`SUBC`), så dette er lav prioritet og ikke videre undersøkt.
+
+- **WAF-blokkering (403):** Weatherford, Chevron, BP, Ørsted har
+  WAF/Akamai-beskyttelse som kan avvise en vanlig `requests.get()` uansett
+  User-Agent. `fetch_ir.py` prøver nå headless-nettleseren (samme mekanisme
+  som for JS-rendrede sider) også når den vanlige forespørselen feiler med
+  403 — en ekte nettleser har en ekte TLS/JS-fingeravtrykk som ofte kommer
+  forbi enklere botdeteksjon. Bekreftet virker for Weatherford. Ikke
+  garantert mot alle WAF-er (Akamai Bot Manager kan i prinsippet fortsatt
+  oppdage automatisering), men verdt å prøve før man gir opp helt.
 - Noen få selskaper i `config/watchlist.json` mangler fortsatt `ir_url`
   (`null`) — spesielt et par mindre norske Euronext Growth-selskaper.
-- `scripts/probe_urls.py`, `scripts/probe_newsweb_playwright.py` og
+- `scripts/probe_urls.py`, `scripts/probe_newsweb_playwright.py`,
+  `scripts/probe_bakerhughes.py`, `scripts/probe_watchlist_coverage.py` og
   `scripts/discover_ir_urls.py` er beholdt som permanente feilsøkingsverktøy
-  — legg til nye kandidater der og kjør via en midlertidig
-  workflow_dispatch-jobb for å teste fra en runner med ekte nettilgang.
+  — kjør `probe_watchlist_coverage.py` via en midlertidig
+  workflow_dispatch-jobb når som helst for å få en fersk statusliste over
+  hvilke selskaper som faktisk gir treff akkurat nå.
+
+## Relevanskriterier (hva som tas med / droppes)
+
+`src/draft.py` sitt system-prompt har en eksplisitt kriterieliste. Grunn-
+spørsmålet er: «ville dette endret hvordan en forvalter tenker om aksjen,
+en peer eller sektoren i dag?» — altså value-add nyhetsflyt som kan bevege
+en kurs.
+
+Filteret er bevisst satt til å heller ta med for mye enn for lite — det er
+verre å miste en sak analytikeren trengte enn å ha med én ekstra linje han
+skummer forbi på to sekunder.
+
+**Tas MED:** (a) kontrakter/tildelinger/ordre/tenders/rammeavtaler/LOI/MOU
+— uansett størrelse, også uten oppgitt verdi hvis omfang/motpart er
+vesentlig; (b) M&A og porteføljegrep (oppkjøp, frasalg, fusjoner, farm-in/
+out, vesentlige eierandelsendringer); (c) field developments / E&P-
+milepæler (FID, funn, first oil/gas, produksjonsstart, reserveoppdateringer,
+lisensrunder, PUD-godkjenning); (d) kapital-/balansegrep (tilbakekjøp,
+utbytteendring, emisjoner, refinansiering, rating); (e) **kvartalstall,
+trading updates og driftsoppdateringer som inneholder faktiske tall**
+(produksjonsvolum, inntekt/EBITDA, prisoppnåelse, rigg-/flåtetall, ordre-
+reserve/backlog, guiding) — tas med uansett om tallene er «overraskende»
+eller ikke, en forvalter vil ha kvartalstallene uansett (f.eks. «Vår Energi:
+Second quarter 2026 trading update» eller «OKEA second quarter 2026 trading
+update» — har den tall, er den med); (f) rigg/OSV-markedsdata (rater,
+kontrakter, utnyttelse, nybygg/salg); (g) regulatorisk/juridisk/politisk med
+reell finansiell effekt (OPEC, sanksjoner, bøter, skatt); (h) store
+driftsforstyrrelser (utfall, force majeure, streik); (i) sektor/makro selv
+uten ett navngitt selskap.
+
+**Droppes (holdes bevisst smal):** kun rene møteinnkallinger uten tall —
+«Invitation to Q2 2026 results presentation», «save the date»,
+finanskalender — altså null datapunkter. Har saken ett eneste konkret tall,
+er den IKKE i denne kategorien, den hører til (e) og skal med. Utover det:
+rutinemessige primærinnsidemeldinger og flaggemeldinger (med mindre uvanlig
+store); aksjekapital-/stemmerett-administrasjon, GF-innkallinger og
+administrative filinger; mindre personalendringer (under C-nivå); generisk
+ESG/PR/markedsføring/sponsing; duplikater av samme sak.
+
+Ved tvil: ta saken MED. Det har skjedd to ganger at filteret var for
+strengt og droppet noe det ikke skulle (TGS' salg til Enverus, og senere
+Vår Energi/OKEA sine trading updates) — kriteriene over er skrevet for å
+unngå akkurat det, med eksplisitt bias mot inklusjon.
 
 ## Drafting-stil
 
-`src/draft.py` sitt system-prompt inneholder ekte eksempler fra tidligere
+`src/draft.py` sitt system-prompt inneholder også ekte eksempler fra tidligere
 Early Bird-utgaver (format, informasjonstetthet, når man avslutter med en
 kort vurdering som "Neutral for Equinor." eller "Share price positive.").
 Oppdater few-shot-eksemplene der om stilen bør justeres videre.
