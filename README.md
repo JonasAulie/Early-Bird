@@ -173,11 +173,14 @@ verifisert at Baker Hughes vil gi konsistente treff i produksjon.
 ## Kjente begrensninger
 
 
-- **Kan fortsatt bli blokkert av bot-beskyttelse (403):** Weatherford,
-  Chevron, BP, Ørsted har WAF/Akamai-beskyttelse som kan avvise automatiserte
-  requests uansett User-Agent. De har nå fått de oppgitte IR-URL-ene (juli
-  2026); om en runner-kjøring viser 403 for disse, krever det en ekte
-  (headless) nettleser å komme forbi — ikke prioritert nå.
+- **WAF-blokkering (403):** Weatherford, Chevron, BP, Ørsted har
+  WAF/Akamai-beskyttelse som kan avvise en vanlig `requests.get()` uansett
+  User-Agent. `fetch_ir.py` prøver nå headless-nettleseren (samme mekanisme
+  som for JS-rendrede sider) også når den vanlige forespørselen feiler med
+  403 — en ekte nettleser har en ekte TLS/JS-fingeravtrykk som ofte kommer
+  forbi enklere botdeteksjon. Ikke garantert mot alle WAF-er (Akamai Bot
+  Manager kan i prinsippet fortsatt oppdage automatisering), men verdt å
+  prøve før man gir opp helt.
 - Transocean, Noble, Seadrill og Kongsberg Maritime har nå fått spesifikke
   IR-URL-er (juli 2026); disse verifiseres på neste live-kjøring.
 - Noen få selskaper i `config/watchlist.json` mangler fortsatt `ir_url`

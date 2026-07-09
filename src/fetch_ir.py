@@ -42,8 +42,15 @@ def fetch_company_news(company_id: str, ir_url: str) -> List[Dict]:
         resp = requests.get(ir_url, timeout=TIMEOUT, headers=HEADERS)
         resp.raise_for_status()
     except requests.RequestException as e:
-        print(f"[fetch_ir] WARNING: could not load {ir_url} for {company_id}: {e}")
-        return []
+        # Don't give up here -- a WAF/Akamai-style block (403 Forbidden) on a
+        # plain requests.get() is exactly the kind of thing a real headless
+        # browser can get past (real TLS/JS fingerprint, not just a spoofed
+        # User-Agent header). Confirmed needed for Weatherford/Chevron/BP/
+        # Orsted. Fall through to the same headless path used for JS-only
+        # SPAs instead of returning [] immediately.
+        print(f"[fetch_ir] WARNING: could not load {ir_url} for {company_id} via plain HTTP "
+              f"({e}) -- trying headless browser before giving up.")
+        return _fetch_via_headless_browser(ir_url, company_id)
 
     feed_url = _discover_feed(ir_url, resp.text)
     if feed_url:
