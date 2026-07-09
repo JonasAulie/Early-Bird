@@ -188,12 +188,29 @@ juli 2026) viste 52/58 fungerende. De resterende:
   query-parameter (`?contenttype=press%20release`) som ga en side med null
   daterte overskrifter; den enklere `www.chevron.com/newsroom` gir 20/20
   daterte kandidater inkludert ferske saker.
-- **Saudi Aramco** — fortsatt uløst. Serveren er treg/ustabil (gjentatte
-  timeouts på alle testede URL-varianter), ikke et URL- eller kode-problem
-  som kan fikses herfra.
-- **Subsea7** — IR-siden gir ingen treff på noen testet URL-variant (alle gir
-  identisk, tomt sideinnhold), men selskapet er uansett fullt dekket via
-  Newsweb (`SUBC`), så dette er lav prioritet og ikke videre undersøkt.
+- **Saudi Aramco** — grundig undersøkt, konkludert uløselig med denne
+  arkitekturen. Ikke et treg-server-problem: både vanlig `requests.get()` og
+  en ekte headless nettleser feiler konsekvent med `net::ERR_HTTP2_PROTOCOL_ERROR`
+  på alle testede URL-er (`scripts/probe_aramco_subsea7.py`). Det mønsteret
+  (protokollfeil, ikke en ren timeout eller et rent 403-svar) er typisk for
+  en WAF som blokkerer trafikk fra datasenter-IP-adresser (som GitHub
+  Actions-runnere bruker) på nettverksnivå, før forespørselen i det hele tatt
+  når applikasjonen. Ikke fiksbart fra kodesiden uten en helt annen
+  nettverksvei (f.eks. en betalt residential-proxy-tjeneste), som er en
+  arkitekturendring, ikke en kodefiks.
+- **Subsea7** — grundig undersøkt, konkludert uløselig med denne
+  arkitekturen. Alle testede URL-er viste seg å servere den *samme* siden
+  uansett path — ikke tomt innhold, men en JS-bot-utfordringsside
+  (`<title>Challenge Validation</title>`, en `cp_clge_done()`-callback som
+  laster siden på nytt når utfordringen er bestått — typisk mønster for
+  PerimeterX/Akamai-stil bot-beskyttelse). Testet om en ekte headless
+  nettleser bare trengte mer tid: ventet opptil 30 sekunder og spurte etter
+  `navigator.webdriver` (kom tilbake `false`, dvs. automasjons-flagget var
+  ikke det som stoppet oss) — utfordringen løste seg aldri
+  (`scripts/probe_subsea7_challenge.py`). Konklusjonen er samme type
+  IP-rykte-basert blokkering som Aramco, ikke noe en bedre scraping-teknikk
+  kan løse. Selskapet er uansett fullt dekket via Newsweb (`SUBC`), så dette
+  er lav prioritet.
 
 - **WAF-blokkering (403):** Weatherford, Chevron, BP, Ørsted har
   WAF/Akamai-beskyttelse som kan avvise en vanlig `requests.get()` uansett
