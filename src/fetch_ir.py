@@ -393,9 +393,10 @@ def fetch_article_body(url: str, label: str = "") -> str:
     except requests.RequestException:
         pass
 
-    # Plain request failed, or returned too little to be the real article
-    # body (e.g. a JS-rendered page) -- try headless as a last resort,
-    # mirroring the WAF/SPA fallback used for the listing scrape.
+    # Plain request failed, or returned too little (or nothing but a cookie
+    # banner -- see _extract_article_text) to be the real article body --
+    # try headless as a last resort, mirroring the WAF/SPA fallback used for
+    # the listing scrape.
     html = _render_page_headless(url, label or url)
     if html:
         text = _extract_article_text(html)
@@ -404,10 +405,33 @@ def fetch_article_body(url: str, label: str = "") -> str:
     return None
 
 
+# Cookie-consent banners are near-universal on corporate IR sites and often
+# aren't tagged with any "nav"/"footer"/"cookie" class our decompose list
+# would catch -- confirmed for Baker Hughes' investor-platform page, where
+# the banner was the single largest <p> on the page and got returned as the
+# "article body" for a Sabine Pass LNG contract announcement. Filter any
+# element whose own class/id names it as consent/legal chrome, and as a
+# content-level backstop (in case a page hides the banner in an unlabeled
+# div), reject the whole extraction if what's left still reads like one.
+_CONSENT_CLASS_KEYWORDS = ("cookie", "consent", "gdpr", "onetrust", "cc-window", "cc-banner")
+_COOKIE_BANNER_PHRASES = (
+    "cookie settings", "cookie notice", "cookie policy", "we use cookies",
+    "storing of active cookies", "reject all non-essential cookies",
+)
+
+
 def _extract_article_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "nav", "header", "footer", "aside", "form"]):
         tag.decompose()
+    for tag in soup.find_all(attrs={"class": True}):
+        classes = " ".join(tag.get("class", [])).lower()
+        if any(kw in classes for kw in _CONSENT_CLASS_KEYWORDS):
+            tag.decompose()
+    for tag in soup.find_all(attrs={"id": True}):
+        if any(kw in tag.get("id", "").lower() for kw in _CONSENT_CLASS_KEYWORDS):
+            tag.decompose()
+
     # Prefer a semantic <article> tag or a common CMS "content" container if
     # present -- keeps nav/footer boilerplate out of the extracted text on
     # pages where those elements aren't cleanly tagged as nav/footer.
@@ -418,5 +442,8 @@ def _extract_article_text(html: str) -> str:
     text = " ".join(p.get_text(" ", strip=True) for p in paragraphs)
     text = " ".join(text.split())
     if not text:
+        return None
+    lowered = text.lower()
+    if any(phrase in lowered for phrase in _COOKIE_BANNER_PHRASES):
         return None
     return text[:_ARTICLE_BODY_MAX_CHARS]
