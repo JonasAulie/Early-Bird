@@ -1,39 +1,41 @@
 """One-off diagnostic: cross-check why real Early Bird items were missed by
 the automated scanner today. Jonas's real issue had 7 items; the bot sent
 Var Energi, OKEA, Bonheur (+ TGS the day before) but missed Baker Hughes,
-NorAm Drilling, Equinor, and the Oil/EIA inventory item.
+NorAm Drilling, and Equinor.
 
-Dumps the raw Newsweb list for NORAM and EQNR (both have a working ticker)
-to see whether the relevant messages are even being returned, with what
-publish time, and whether they're already sitting in state/seen.json.
+v2: after fixing fetch_newsweb.py to always pass an explicit date range
+(previously the undated call returned 0 messages for both EQNR and NORAM
+despite same-day publications), a full production run STILL showed 0
+candidates for either. This dumps the complete (untruncated) message list
+for both issuers through the real fetch_issuer_messages() + recency check,
+to see exactly what's being returned now and why it's not passing through.
 
 Run via a throwaway workflow_dispatch job on a runner with real network
 access.
 """
-import json
-from pathlib import Path
+from datetime import datetime, timezone
 
 from src.fetch_newsweb import fetch_issuer_messages
+from src.main import lookback_cutoff, is_recent_enough
 from src.state import load_seen, item_id
-
-SEEN_PATH = Path(__file__).resolve().parent.parent / "state" / "seen.json"
 
 
 def probe():
     seen = load_seen()
-    print(f"{len(seen)} ids currently in state/seen.json\n")
+    now = datetime.now(timezone.utc)
+    cutoff = lookback_cutoff(now)
+    print(f"now={now.isoformat()}  cutoff={cutoff.isoformat()}\n")
 
-    for issuer, label in [("NORAM", "NorAm Drilling"), ("EQNR", "Equinor")]:
+    for issuer, label in [("EQNR", "Equinor"), ("NORAM", "NorAm Drilling")]:
         print(f"=== {label} (issuer={issuer}) ===")
         items = fetch_issuer_messages(issuer)
-        print(f"{len(items)} messages returned from Newsweb list endpoint:")
+        print(f"{len(items)} messages returned:")
         for it in items:
             iid = item_id(it["url"], it["title"])
+            recent = is_recent_enough(it["published"], cutoff)
             already_seen = iid in seen
-            print(f"  published={it['published']!r}  already_seen={already_seen}  "
-                  f"title={it['title'][:90]!r}")
-            if it.get("summary"):
-                print(f"    summary/body snippet: {it['summary'][:200]!r}")
+            print(f"  published={it['published']!r}  recent_enough={recent}  "
+                  f"already_seen={already_seen}  title={it['title'][:90]!r}")
         print()
 
 
