@@ -424,11 +424,22 @@ def _extract_article_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "nav", "header", "footer", "aside", "form"]):
         tag.decompose()
+    # find_all() materializes the full match list up front, but consent SDKs
+    # commonly nest several class/id-carrying elements inside each other
+    # (e.g. OneTrust's #onetrust-consent-sdk wrapping #onetrust-banner-sdk) --
+    # decomposing an ancestor also destroys descendants already in that same
+    # list, so a later iteration can hit an already-decomposed tag (its
+    # .attrs is cleared to None, so .get() raises). Skip anything already
+    # decomposed rather than crash on it.
     for tag in soup.find_all(attrs={"class": True}):
+        if getattr(tag, "decomposed", False):
+            continue
         classes = " ".join(tag.get("class", [])).lower()
         if any(kw in classes for kw in _CONSENT_CLASS_KEYWORDS):
             tag.decompose()
     for tag in soup.find_all(attrs={"id": True}):
+        if getattr(tag, "decomposed", False):
+            continue
         if any(kw in tag.get("id", "").lower() for kw in _CONSENT_CLASS_KEYWORDS):
             tag.decompose()
 
