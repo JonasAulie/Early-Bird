@@ -299,8 +299,8 @@ python -m src.main
 
 ## Tidspunkt
 
-Jobben er ment å kjøre kl. 07:02, 07:32 og 08:02 norsk tid (siste versjon
-med 06:32 fjernet). GitHub Actions cron er alltid UTC og håndterer ikke
+Jobben er ment å kjøre kl. 07:32 og 08:02 norsk tid (07:02 fjernet, kun to
+kjøringer per dag nå). GitHub Actions cron er alltid UTC og håndterer ikke
 sommertid automatisk, så workflow-filen trigger litt oftere enn nødvendig i
 UTC, og `src/schedule_guard.py` avgjør basert på faktisk Oslo-lokal tid om
 denne kjøringen faktisk skal gjøre noe (ellers avsluttes den umiddelbart
