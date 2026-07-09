@@ -15,5 +15,5 @@ jobs:
         run: |
           pip install --upgrade pip setuptools wheel
           pip install --no-build-isolation -r requirements.txt
-      - name: Probe final four (Baker Hughes, Saudi Aramco, Chevron, Subsea7)
-        run: python -m scripts.probe_final_four
+      - name: Verify Baker Hughes + Chevron fixes
+        run: python -m scripts.probe_watchlist_coverage bakerhughes chevron
