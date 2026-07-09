@@ -23,23 +23,16 @@ Gå til **Settings → Secrets and variables → Actions** i dette repoet og leg
 | `RESEND_API_KEY` | resend.com → API Keys |
 | `FROM_EMAIL` | En adresse på et domene du har **verifisert** i Resend (resend.com/domains). Uten verifisert domene kan Resend kun sende til kontoeierens egen adresse. |
 
-Mottakere er `jonasaulie@gmail.com` og `jonas.aulie@seb.no`
-(`src/emailer.py` `DEFAULT_RECIPIENTS`). Hver mottaker sendes som et eget
-Resend-kall (ikke én e-post med to mottakere) nettopp fordi Resend uten et
-**verifisert sende-domene** begrenser den delte sandbox-avsenderen
-(`onboarding@resend.dev`) til å bare kunne sende til kontoeierens egen
-adresse — hvis SEB-adressen blir avvist av den begrensningen, skal ikke det
-også blokkere Gmail-leveransen. Sjekk kjøreloggen for
-`[emailer] ERROR ... sending to jonas.aulie@seb.no` for å se om SEB-adressen
-faktisk kom gjennom eller ble avvist.
-
-Merk: begrensningen er på **sende**-domenet, ikke mottaker — SEB-domenet
-trenger ingen verifisering for å kunne *motta* e-post. **Ikke** verifiser
-`seb.no` i Resend uansett — det er SEB sitt bedriftsdomene og krever
-DNS-endringer bare IT-avdelingen bør gjøre. For å garantere at SEB-adressen
-faktisk mottar e-posten (ikke bare forsøkes), må et domene *du selv eier* bli
-verifisert som sende-domene i Resend og satt som `FROM_EMAIL` — uten det vil
-SEB-leveransen mest sannsynlig bli avvist av Resend hver gang.
+Mottaker er for øyeblikket kun `jonasaulie@gmail.com` (`src/emailer.py`
+`DEFAULT_RECIPIENTS`), siden Resend uten et verifisert domene bare kan sende
+til kontoeierens egen adresse. `jonas.aulie@seb.no` ble testet (bekreftet
+403 fra Resend: "You can only send testing emails to your own email
+address") og er bevisst tatt ut igjen — videresending gjøres manuelt i
+stedet. **Ikke** verifiser `seb.no` i Resend — det er SEB sitt
+bedriftsdomene og krever DNS-endringer bare IT-avdelingen bør gjøre. Vil du
+legge til `jonas.aulie@seb.no` igjen: verifiser et domene du faktisk eier
+selv i Resend, sett det som `FROM_EMAIL`, og legg adressen til i
+`DEFAULT_RECIPIENTS`.
 
 **Sikkerhetsnotat:** Resend-nøkkelen som ble limt inn i en tidligere chat bør
 regenereres i Resend-dashbordet før den tas i bruk her, siden den har stått
