@@ -7,8 +7,11 @@ the few-shot examples in SYSTEM_PROMPT, taken from actual past issues).
 
 Grounding: the model is only given the title/summary/source text that was
 actually scraped -- it is explicitly instructed not to invent numbers,
-dates or details that aren't present in that text. For headline-only items
-(no summary), the comment must stay short rather than fabricate specifics.
+dates or details that aren't present in that text. Every candidate that
+reaches this point has already had its full article body fetched (see
+main.py, fetch_ir.fetch_article_body) where possible; if that fetch failed
+and the item is genuinely headline-only, the comment must stay short rather
+than fabricate specifics.
 """
 import json
 import os
@@ -83,13 +86,25 @@ Use the "recommendation" field given in the input verbatim as Rec. If "recommend
      - If the item is a sector-wide/macro item not tied to one company (M&A between two companies, a \
 tender, a macro data release, a field development): "Topic – short description".
      - Use an en dash "–" (not a hyphen) between the company/topic part and the description.
-   - "comment": Factual, information-dense, analyst house style -- see the real examples below. Use \
-EVERY concrete figure present in the source (contract value, percentages, volumes, dates, locations, \
-counterparties) -- do not compress these away for brevity, but also don't pad with filler sentences that \
-add no information. Length follows the source: if the source has a lot of detail, use 2-4 sentences; if \
-it's just a bare headline with nothing more, one short sentence is correct -- never invent numbers, \
-dates, dollar amounts, or details that are not in the source text to make a comment feel more complete. \
-For a covered company (recommendation is not null), it is good style to end with a short one-clause \
+   - "comment": Neutral, fact-dense analyst house style -- see the real examples below.
+     - Tone: neutral and factual. No adjectives, no filler, no editorializing ("impressive", \
+"strong", "notably", "importantly", etc.) -- state what happened and let the facts carry the weight.
+     - Sentence structure: lead with the time reference (when it was announced/happened), then the \
+concrete event (what happened), then the figures/context (numbers, scope, counterparties, locations, \
+timeline). Follow this order within each sentence and across the paragraph, mirroring the real \
+examples below.
+     - Use EVERY concrete figure present in the source (contract value, percentages, volumes, dates, \
+locations, counterparties, timelines) -- do not compress these away for brevity.
+     - Length: typically 3-6 sentences. This is a target, not a hard cap either direction -- use more \
+if the source has enough real detail that a portfolio manager or broker would need all of it (do not \
+cut material information just to hit a shorter length), and use fewer (down to a single sentence) if \
+the source genuinely doesn't have more to say (a bare headline with no article body). Every sentence \
+must be value-add -- information the reader actually needs -- never a filler sentence that restates \
+the headline without adding a new fact.
+     - Never invent numbers, dates, dollar amounts, or details that are not in the source text to make \
+a comment feel more complete or to reach the target length. If the source is thin, a short comment is \
+correct and preferred over padding.
+     - For a covered company (recommendation is not null), it is good style to end with a short one-clause \
 read-through when it is clearly and directly supported by the disclosed facts (e.g. "No contract value \
 was disclosed.", "Neutral for Equinor.", "Share price positive."). Never invent a directional call \
 ("positive"/"negative"/"neutral") that isn't obviously implied by the facts given -- omit that closing \
