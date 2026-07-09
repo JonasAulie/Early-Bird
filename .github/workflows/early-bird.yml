@@ -4,15 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Run even if outside the 3 target Oslo-time slots (for manual testing)"
+        description: "Run even if outside the 2 target Oslo-time slots (for manual testing)"
         type: boolean
         default: false
   schedule:
-    # UTC times covering Oslo 07:02 / 07:32 / 08:02 across both CET (winter,
+    # UTC times covering Oslo 07:32 / 08:02 across both CET (winter,
     # UTC+1) and CEST (summer, UTC+2). schedule_guard.py no-ops any firing
     # that isn't actually close to a target Oslo time, so this looks like
     # more firings than we want but most are cheap skips.
-    - cron: "2 5 * * *"
     - cron: "32 5 * * *"
     - cron: "2 6 * * *"
     - cron: "32 6 * * *"
