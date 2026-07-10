@@ -20,6 +20,7 @@ from src.watchlist import load_companies
 from src.state import load_seen, save_seen, item_id
 from src.fetch_newsweb import fetch_issuer_messages
 from src.fetch_ir import fetch_company_news, fetch_article_body
+from src.fetch_news_aggregator import fetch_news_aggregator
 from src.draft import draft_entries
 from src.emailer import send_digest
 from src.schedule_guard import should_run_now
@@ -83,6 +84,14 @@ def collect_candidates(companies, cutoff, seen_ids):
         # newsweb_issuer and ir_url as mutually exclusive.
         if company.get("ir_url"):
             items.extend(fetch_company_news(company["id"], company["ir_url"]))
+        # Fallback for companies whose own site is a confirmed network-level
+        # WAF/IP-reputation block that no scraping technique from this
+        # environment can get past (see watchlist.json comment context and
+        # scripts/probe_aramco_subsea7*.py) -- Google/Bing News RSS run on
+        # infrastructure the block doesn't target, and surface real
+        # corporate news the direct path can never see.
+        if company.get("news_aggregator_query"):
+            items.extend(fetch_news_aggregator(company["news_aggregator_query"], company["id"]))
 
         for item in items:
             if not is_recent_enough(item.get("published"), cutoff):

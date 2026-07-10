@@ -15,5 +15,7 @@ jobs:
         run: |
           pip install --upgrade pip setuptools wheel
           pip install --no-build-isolation -r requirements.txt
-      - name: Try alternative data sources for Aramco + Subsea7
-        run: python -m scripts.probe_aramco_subsea7_alt_sources
+      - name: End-to-end test of Aramco news-aggregator fallback
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python -m scripts.probe_aramco_aggregator_e2e
