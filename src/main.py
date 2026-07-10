@@ -13,7 +13,7 @@ Run with: python -m src.main
 """
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from dateutil import parser as dateparser
 
 from src.watchlist import load_companies
@@ -53,6 +53,19 @@ def is_recent_enough(published_raw, cutoff: datetime) -> bool:
         dt = dateparser.parse(published_raw)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
+        if dt.timetz().replace(tzinfo=None) == time(0, 0):
+            # Most IR-scraped sources (unlike Newsweb) only give a bare
+            # calendar date, no time-of-day -- fetch_ir._parse_date_string
+            # defaults those to midnight. Comparing that midnight timestamp
+            # directly against an 08:30 cutoff means an item genuinely
+            # published "yesterday" always reads as yesterday-00:00, which
+            # is *before* yesterday's 08:30 cutoff -- so it gets silently
+            # dropped on every single day's run, permanently, regardless of
+            # which run processes it. Confirmed live: a real SLB/OneSubsea
+            # deal and a Baker Hughes/Kodiak Gas Services deal both never
+            # made it into any digest because of this. For date-only items,
+            # compare by calendar date instead so the whole day counts.
+            return dt.date() >= cutoff.date()
         return dt >= cutoff
     except (ValueError, OverflowError):
         return False
