@@ -192,29 +192,35 @@ juli 2026) viste 52/58 fungerende. De resterende:
   query-parameter (`?contenttype=press%20release`) som ga en side med null
   daterte overskrifter; den enklere `www.chevron.com/newsroom` gir 20/20
   daterte kandidater inkludert ferske saker.
-- **Saudi Aramco** — grundig undersøkt, konkludert uløselig med denne
-  arkitekturen. Ikke et treg-server-problem: både vanlig `requests.get()` og
-  en ekte headless nettleser feiler konsekvent med `net::ERR_HTTP2_PROTOCOL_ERROR`
-  på alle testede URL-er (`scripts/probe_aramco_subsea7.py`). Det mønsteret
-  (protokollfeil, ikke en ren timeout eller et rent 403-svar) er typisk for
-  en WAF som blokkerer trafikk fra datasenter-IP-adresser (som GitHub
-  Actions-runnere bruker) på nettverksnivå, før forespørselen i det hele tatt
-  når applikasjonen. Ikke fiksbart fra kodesiden uten en helt annen
-  nettverksvei (f.eks. en betalt residential-proxy-tjeneste), som er en
-  arkitekturendring, ikke en kodefiks.
-- **Subsea7** — grundig undersøkt, konkludert uløselig med denne
-  arkitekturen. Alle testede URL-er viste seg å servere den *samme* siden
-  uansett path — ikke tomt innhold, men en JS-bot-utfordringsside
-  (`<title>Challenge Validation</title>`, en `cp_clge_done()`-callback som
-  laster siden på nytt når utfordringen er bestått — typisk mønster for
-  PerimeterX/Akamai-stil bot-beskyttelse). Testet om en ekte headless
-  nettleser bare trengte mer tid: ventet opptil 30 sekunder og spurte etter
-  `navigator.webdriver` (kom tilbake `false`, dvs. automasjons-flagget var
-  ikke det som stoppet oss) — utfordringen løste seg aldri
-  (`scripts/probe_subsea7_challenge.py`). Konklusjonen er samme type
-  IP-rykte-basert blokkering som Aramco, ikke noe en bedre scraping-teknikk
-  kan løse. Selskapet er uansett fullt dekket via Newsweb (`SUBC`), så dette
-  er lav prioritet.
+- **Saudi Aramco** — direkte scraping av `aramco.com` er fortsatt
+  uløselig: både vanlig `requests.get()`, en ekte headless nettleser, OG et
+  tredjeparts reader-proxy-verktøy (r.jina.ai) feiler alle konsekvent med
+  `net::ERR_HTTP2_PROTOCOL_ERROR`/403 (`scripts/probe_aramco_subsea7.py`,
+  `probe_aramco_subsea7_alt_sources.py`) — et mønster typisk for en WAF som
+  blokkerer datasenter-IP-adresser på nettverksnivå, ikke noe en bedre
+  scraping-teknikk kan løse. **Løst likevel** via en annen vei: Google
+  News- og Bing News RSS kjører på Googles/Microsofts egen infrastruktur,
+  ikke Aramcos, så blokkeringen treffer dem ikke — bekreftet live til å gi
+  ekte, relevante saker (kontraktstildelinger, rørledningsprosjekt-
+  oppdateringer) som Aramcos egen side blokkerer oss fra å se direkte. Lagt
+  til som fallback-kilde (`src/fetch_news_aggregator.py`,
+  `news_aggregator_query` i watchlist.json) kun for Aramco. Støyere enn en
+  ren pressemeldings-feed (blander inn tredjeparts analyse/kommentarer),
+  men det eksisterende relevansfilteret håndterer det fint — bekreftet
+  live: en urelatert sak om et statsbesøk som nevnte Aramco i forbifarten
+  ble korrekt droppet, mens ekte kontraktnyheter er nøyaktig den typen
+  saker filteret er bygget for å beholde.
+- **Subsea7** — samme type IP-rykte-blokkering som Aramco (bekreftet: alle
+  testede URL-er serverer en identisk JS-bot-utfordringsside, `<title>
+  Challenge Validation</title>`, som aldri løser seg selv etter 30
+  sekunders vent og med `navigator.webdriver` spoofet til `false` — se
+  `scripts/probe_subsea7_challenge.py`). Samme Google/Bing News RSS-vei
+  virker også her (bekreftet: fant ekte saker om Saipem-fusjonen, ny CEO,
+  kontraktstildeling), men er **ikke** lagt til som fallback siden
+  selskapet uansett er fullt dekket via Newsweb (`SUBC`) — ville bare gitt
+  duplikat-risiko for null gevinst. Kan legges til senere hvis det viser
+  seg at Newsweb mangler noe (f.eks. fusjonsnyheter som kommer via Saipems
+  italienske børs snarere enn Oslo Newsweb).
 
 - **WAF-blokkering (403):** Weatherford, Chevron, BP, Ørsted har
   WAF/Akamai-beskyttelse som kan avvise en vanlig `requests.get()` uansett
