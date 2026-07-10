@@ -341,6 +341,28 @@ Tidsvinduet for hva som regnes som "nytt" er fast: siden kl. 08:30 Oslo-tid
 dagen før (fredag 08:30 på mandager, for å dekke helgen), ikke en rullerende
 24-timers periode fra når jobben tilfeldigvis kjører.
 
+### Backup-trigger (GitHub sin schedule er "best effort")
+
+Oppdaget 10. juli 2026: GitHub Actions' egen `schedule`-trigger er ikke
+garantert — GitHub sier selv den er "best effort" og kan bli forsinket eller
+i sjeldne tilfeller droppet helt, spesielt ved høy belastning på plattformen.
+Begge de planlagte kjøringene den morgenen (05:32 og 06:02 UTC) uteble helt
+uten noen synlig feil — ingen kjøring dukket opp i det hele tatt, verken
+umiddelbart eller forsinket. Dette er ikke en feil i cron-syntaksen eller
+`default_branch`-oppsettet (begge ble verifisert korrekte).
+
+Siden dette er en reell, uforutsigbar plattformbegrensning som ikke kan
+fikses fra kodesiden, er det satt opp 4 uavhengige backup-triggere (Claude
+Code Remote "Routines", utenfor GitHub sin egen cron-motor) som speiler de
+4 UTC-tidspunktene i `early-bird.yml` sin `schedule`-liste, men forskjøvet
+~8 minutter senere. Hver av dem sjekker om GitHub sin egen `schedule` alt
+har trigget en kjøring i tidsvinduet — hvis ja, gjør den ingenting (unngår
+dobbel kjøring/dobbel LLM-kostnad); hvis nei, trigger den selv en
+`workflow_dispatch` (uten `force`, så `schedule_guard.py` fortsatt avgjør
+om det faktisk er riktig Oslo-tidspunkt). Dette er ren infrastruktur utenfor
+dette repoet — ligger ikke i noen fil her, men i Claude Code sitt eget
+trigger-system knyttet til denne økten.
+
 ## Selskapsuniverset
 
 `config/watchlist.json` er en sammenslåing av SEBs egen Energy-dekningsliste
