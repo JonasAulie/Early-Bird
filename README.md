@@ -3,7 +3,7 @@
 Automatisk scanner som henter pressemeldinger/børsmeldinger for et
 selskapsunivers (se `config/watchlist.json`), filtrerer for relevans, og
 sender et utkast (overskrift + kommentar, i SEBs Early Bird-stil) på e-post
-3 ganger hver morgen.
+2 ganger hver morgen (07:32 og 08:02 Oslo-tid).
 
 ## Hvorfor GitHub Actions (ikke Claude Code-økten)
 

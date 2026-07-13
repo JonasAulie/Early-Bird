@@ -418,7 +418,7 @@ def fetch_article_body(url: str, label: str = "") -> str:
     _scrape_listing -- summary is always None), which forces the drafter to
     write a one-line comment even for a story with real substance. This is
     called only for the small number of candidates that survive the
-    recency+dedup filter (a handful per run, not the ~20-headline listing
+    recency filter (a handful per run, not the ~20-headline listing
     scrape), so a slower per-page fetch here is an acceptable tradeoff for
     giving the model enough grounding to write a proper multi-sentence
     comment instead of a bare-headline placeholder.
