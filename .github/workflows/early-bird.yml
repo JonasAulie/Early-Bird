@@ -17,9 +17,6 @@ on:
     - cron: "32 6 * * *"
     - cron: "2 7 * * *"
 
-permissions:
-  contents: write
-
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -45,13 +42,4 @@ jobs:
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           FORCE_RUN: ${{ inputs.force }}
         run: python -m src.main
-
-      - name: Persist dedup state
-        if: always()
-        run: |
-          git config user.name "early-bird-bot"
-          git config user.email "actions@github.com"
-          git add state/seen.json
-          git diff --cached --quiet || git commit -m "Update seen-items state [skip ci]"
-          git push
 
