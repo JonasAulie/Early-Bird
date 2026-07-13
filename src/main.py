@@ -7,6 +7,10 @@
      to Saturday if today is Monday) that haven't been emailed already.
   4. Ask Claude to filter for relevance and draft headline + comment.
   5. Email the result via Resend (skipped if nothing relevant was found).
+     The 07:32 and 08:02 Oslo runs read as one cumulative morning digest --
+     the 08:02 email includes whatever the 07:32 run already sent today,
+     plus whatever's newly kept, so reading only one mail still shows
+     everything (see load_today_entries/save_seen in state.py).
   6. Persist updated dedup state.
 
 Run with: python -m src.main
@@ -14,10 +18,11 @@ Run with: python -m src.main
 import os
 import sys
 from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from dateutil import parser as dateparser
 
 from src.watchlist import load_companies
-from src.state import load_seen, save_seen, item_id
+from src.state import load_seen, save_seen, load_today_entries, item_id
 from src.fetch_newsweb import fetch_issuer_messages
 from src.fetch_ir import fetch_company_news, fetch_article_body
 from src.fetch_news_aggregator import fetch_news_aggregator
@@ -31,7 +36,6 @@ def lookback_cutoff(now_utc: datetime) -> datetime:
     'since yesterday's 08:30 Oslo' -- not a rolling 24h from whenever this
     particular run happens to fire. On Mondays, back up to last Friday
     08:30 so weekend news isn't missed."""
-    from zoneinfo import ZoneInfo
     oslo = ZoneInfo("Europe/Oslo")
     local_now = now_utc.astimezone(oslo)
     days_back = 3 if local_now.weekday() == 0 else 1  # Monday -> back to Friday
@@ -136,9 +140,15 @@ def main():
         print("[main] FORCE_RUN set, bypassing the Oslo-time slot check")
 
     cutoff = lookback_cutoff(now)
+    # Oslo-local calendar date, not the UTC one -- the 07:32 and 08:02 runs
+    # both fall on the same Oslo morning even though a UTC-date rollover
+    # could sit between them around midnight in edge cases, and this is what
+    # decides whether today's carryover digest below still applies.
+    today_str = now.astimezone(ZoneInfo("Europe/Oslo")).date().isoformat()
 
     companies = load_companies()
     seen_ids = load_seen()
+    today_entries = load_today_entries(today_str)
 
     candidates = collect_candidates(companies, cutoff, seen_ids)
     print(f"[main] {len(candidates)} candidate items after recency+dedup filtering")
@@ -169,8 +179,16 @@ def main():
         if c["url"] not in kept_urls:
             print(f"[main]   dropped by relevance filter: company={c['company']!r} title={c['title'][:100]!r}")
 
+    # The 07:32 and 08:02 Oslo runs are meant to read as one cumulative
+    # morning digest, not two independent partial ones -- so the email body
+    # carries forward whatever an earlier run today already sent (today_entries)
+    # plus whatever is newly kept this run, so a reader who only opens the
+    # 08:02 mail still sees everything from that morning. Only actually SEND
+    # when there's something new this run, though -- a carryover-only email
+    # would just be a duplicate of the one already sent.
+    combined_entries = today_entries + entries
     if entries:
-        html = render_html(entries)
+        html = render_html(combined_entries)
         subject = f"Early Bird utkast -- {datetime.now().strftime('%d.%m.%Y %H:%M')}"
         try:
             send_digest(subject, html)
@@ -194,7 +212,7 @@ def main():
         is_newsweb = c["source"].startswith("Newsweb")
         if not is_newsweb or c["url"] in kept_urls:
             seen_ids.add(c["_id"])
-    save_seen(seen_ids)
+    save_seen(seen_ids, today_str, combined_entries)
 
 
 if __name__ == "__main__":

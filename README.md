@@ -129,6 +129,29 @@ hentet (selskap, dato, tittel) og alt relevansfilteret droppet — les
 run-loggen på GitHub Actions for å se nøyaktig hva som skjedde med en
 konkret sak, i stedet for å måtte skrive et eget probe-script.
 
+## 07:32/08:02 er én kumulativ morgen-digest, ikke to uavhengige
+
+`state/seen.json` har nå også et `today_digest`-felt (dato + liste med
+saker) i tillegg til `seen_ids`. 08:02-kjøringen slår sammen det 07:32-
+kjøringen allerede sendte i dag med det den selv finner av nytt, slik at
+mailen som går kl. 08:02 inneholder *hele* morgenens saker — ikke bare
+delta siden forrige kjøring. Feltet nullstilles automatisk når datoen
+(Oslo-lokal) ruller over, så det bygger seg ikke opp på tvers av dager.
+Selve dedup-mekanismen over (hvilke råsaker som sendes til modellen)
+er upåvirket — dette gjelder kun hva som til slutt havner i e-posten.
+
+## Klokkeslett i datofeltet, ikke bare kalenderdato
+
+`fetch_ir.py` fanger nå opp et klokkeslett rett etter datoen i en
+overskrift (f.eks. Equinors "10 July 2026|08:00 (CEST)Equinor's second
+quarter..."), i stedet for å bare beholde datoen og stille anta
+midnatt. Uten dette ble en sak reelt publisert kl. 08:00 — 30 minutter
+før selve 08:30-grensen — behandlet som "hele dagen teller" og dukket
+opp en dag den ikke skulle. Bekreftet live: en Equinor-sak fra kl. 08:00
+lørdag/fredag dukket opp i en kjøring som burde ha kuttet den. Rene
+dato-uten-klokkeslett-kilder (fortsatt det vanlige for de fleste
+IR-sider) er upåvirket og bruker samme "hele dagen teller"-fallback som før.
+
 ## Token-bruk / kostnad
 
 Token-kostnaden er Anthropic API-kostnad og henger **ikke** sammen med hvor
