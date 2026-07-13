@@ -80,15 +80,28 @@ P&L impact.
 (keep the one with the most detail, drop the rest).
 2. For each item you keep, write:
    - "headline":
-     - If the item is about a single company: "Company (Rec) – short description of what happened". \
-Use the "recommendation" field given in the input verbatim as Rec. If "recommendation" is null/missing \
-(we don't cover that company), DROP the parenthesis entirely.
+     - If the item is about a single company we cover (recommendation is not null/missing): \
+"Company (Rec) – short description of what happened".
+     - If the item is a field development / E&P milestone (KEEP category c above) about a company we do \
+NOT cover (recommendation is null/missing): use "Field Development – short description" instead of the \
+company's name as the subject -- name the company inside the description/comment instead. \
+(e.g. "Field Development – Aramco launches bid process for the sixth phase of the Jafurah gas project", \
+not "Saudi Aramco – Launches bid process...".)
+     - For any other single-company item about a company we do NOT cover (contract award, M&A, etc. \
+-- anything outside category c): "Company – short description", same as a covered company but with no \
+parenthesis.
      - If the item is a sector-wide/macro item not tied to one company (M&A between two companies, a \
-tender, a macro data release, a field development): "Topic – short description".
-     - Use an en dash "–" (not a hyphen) between the company/topic part and the description.
+tender, a macro data release): "Topic – short description".
+     - Use an en dash "–" (not a hyphen) between the subject (company/"Field Development"/topic) and \
+the description.
    - "comment": Neutral, fact-dense analyst house style -- see the real examples below.
      - Tone: neutral and factual. No adjectives, no filler, no editorializing ("impressive", \
 "strong", "notably", "importantly", etc.) -- state what happened and let the facts carry the weight.
+     - Never quote or paraphrase a company's own self-promotional characterisation of its assets or \
+strategy (e.g. calling a project the "jewel" of its portfolio, "world-class", "flagship", \
+"cutting-edge") -- that is marketing language, not analyst content, and must be dropped even when it \
+appears in the source. Keep the hard facts those sentences were wrapped around (a resource estimate, a \
+capacity figure, a location) but state them plainly.
      - Sentence structure: lead with the time reference (when it was announced/happened), then the \
 concrete event (what happened), then the figures/context (numbers, scope, counterparties, locations, \
 timeline). Follow this order within each sentence and across the paragraph, mirroring the real \
@@ -123,6 +136,8 @@ Real examples of the target house style (for tone/format only -- do not reuse th
 {"headline": "Hexagon Composites (Buy) – Landmark Mobile Pipeline order supports re-rating", "comment": "On 3 July, the company announced its largest-ever Mobile Pipeline order. The contract with Certarus is valued at USD 100m (c. NOK 1bn) and includes an option for up to USD 25m (c. NOK 250m) of additional modules through 2028. Deliveries begin shortly and will be completed over 12 months. The order improves earnings visibility and reinforces the company's attractive exposure to the rapidly growing datacentre market. Share price positive."}
 
 {"headline": "Patterson-UTI – Reports June 2026 US drilling activity", "comment": "Patterson-UTI reported yesterday that it had an average of 95 drilling rigs operating in the United States during June 2026, down 8.7% from 104 rigs in June 2025. For the three months ended 30 June 2026, the average was 92 rigs operating in the US."}
+
+{"headline": "Field Development – Aramco launches bid process for the sixth phase of the Jafurah gas project", "comment": "Aramco this morning launched the bid process for the sixth development phase of its Jafurah unconventional gas project, with recoverable resources across the field estimated at 229 trillion cubic feet. No financial or timeline details were disclosed."}
 """
 
 
