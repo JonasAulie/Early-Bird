@@ -109,25 +109,49 @@ tolkes måned-først (amerikansk IR-side-konvensjon), punktum-datoer
 dag-først, som stille kunne bytte om dag og måned på amerikanske
 pressemeldinger datert forbi den 12. i måneden.
 
-## Dedup: hvorfor en LLM-feilvurdering ikke lenger begraver en sak permanent
+## Ingen persistent dedup -- kun tidsvinduet avgjør (bevisst valg)
 
-`src/main.py` markerer hentede saker som «sett» i `state/seen.json` slik at
-de ikke evalueres på nytt (og koster tokens) hver kjøring. For IR-scraping
-(høyt volum, mest støy) skjer dette uansett hva modellen konkluderer. For
-**Newsweb**-saker (sjeldne, offisielle børsmeldinger) markeres en sak derimot
-kun som «sett» hvis den faktisk ble beholdt av relevansfilteret (og dermed
-sendt) — ikke bare fordi den ble hentet. Årsak: en reell børsmelding fra TGS
-(salg av virksomhet til Enverus) ble hentet korrekt og besto recency-sjekken,
-men relevansfilteret (Claude) feilvurderte den som irrelevant i én kjøring —
-og den gamle koden markerte den som «sett» uansett, så den forsvant permanent
-og kunne aldri dukke opp igjen i noen senere kjøring. Nå får en Newsweb-sak
-en ny sjanse på neste kjøring helt til den enten blir sendt eller faller ut
-av tidsvinduet naturlig (1–3 dager).
+Det finnes ingen «allerede sendt»-sperre eller state-fil av noe slag.
+`src/main.py` sender ALT som er innenfor recency-vinduet (siden 08:30
+Oslo-tid dagen før, eller fredag 08:30 på mandager) til relevansfilteret
+hver eneste gang jobben kjører — uavhengig av om samme sak ble sendt i en
+tidligere kjøring. I praksis betyr det:
 
-Hvis noe fortsatt mangler: `src/main.py` logger nå hver kandidat som ble
-hentet (selskap, dato, tittel) og alt relevansfilteret droppet — les
+- 07:32- og 08:02-kjøringen samme dag deler samme vindu, så begge mailene
+  inneholder de samme relevante sakene (pluss ev. noe helt nytt som kom til
+  i mellomtiden) — ingen av dem er en "kun det som er nytt siden sist"-mail.
+- En sak funnet f.eks. kl. 09:30 en dag kan også dukke opp i begge
+  kjøringene neste dag også, siden den fortsatt er innenfor det vinduet.
+  Den faller naturlig ut når vinduet ruller videre (typisk etter 1–2 dager).
+
+Dette er et bevisst valg: en sak skal aldri kunne bli "brukt opp" av en
+tidligere kjøring (manuell test eller reell) og dermed mangle fra en
+kjøring den egentlig hører hjemme i. Prisen er at samme sak kan sendes
+flere ganger på rad, og at token-kostnaden er høyere enn med dedup (samme
+kandidatmengde re-evalueres av modellen på hver kjøring i stedet for bare
+delta) — vurdert som en god byttehandel mot risikoen for at noe reelt
+mangler. Som en ekstra bonus-effekt forsvinner også den gamle
+feilkategorien der en enkelt LLM-feilvurdering kunne begrave en sak
+permanent (det trengte en egen dedup-unntaksregel for Newsweb-saker før;
+den regelen er nå overflødig siden det ikke finnes noen "sett"-liste å bli
+feilaktig begravet i).
+
+Hvis noe fortsatt mangler: `src/main.py` logger fortsatt hver kandidat som
+ble hentet (selskap, dato, tittel) og alt relevansfilteret droppet — les
 run-loggen på GitHub Actions for å se nøyaktig hva som skjedde med en
 konkret sak, i stedet for å måtte skrive et eget probe-script.
+
+## Klokkeslett i datofeltet, ikke bare kalenderdato
+
+`fetch_ir.py` fanger nå opp et klokkeslett rett etter datoen i en
+overskrift (f.eks. Equinors "10 July 2026|08:00 (CEST)Equinor's second
+quarter..."), i stedet for å bare beholde datoen og stille anta
+midnatt. Uten dette ble en sak reelt publisert kl. 08:00 — 30 minutter
+før selve 08:30-grensen — behandlet som "hele dagen teller" og dukket
+opp en dag den ikke skulle. Bekreftet live: en Equinor-sak fra kl. 08:00
+lørdag/fredag dukket opp i en kjøring som burde ha kuttet den. Rene
+dato-uten-klokkeslett-kilder (fortsatt det vanlige for de fleste
+IR-sider) er upåvirket og bruker samme "hele dagen teller"-fallback som før.
 
 ## Token-bruk / kostnad
 
@@ -307,7 +331,7 @@ fanger kun overskriftteksten fra lenken, aldri brødtekst — det ga tidligere
 kunstig korte kommentarer (én setning) for IR-scrapede saker, selv når den
 faktiske pressemeldingen hadde nok stoff til 3–6 setninger. `main.py` henter
 derfor nå den fulle artikkelteksten (`fetch_ir.fetch_article_body()`) for
-hver kandidat som overlever recency+dedup-filtreringen — altså en håndfull
+hver kandidat som overlever recency-filtreringen — altså en håndfull
 saker per kjøring, ikke hele ~20-overskrifters listen per selskap, så
 kostnaden holdes lav. Newsweb-saker har alltid hatt full brødtekst allerede
 (via `_fetch_message_body()`); dette tetter det samme hullet for

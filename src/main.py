@@ -1,23 +1,31 @@
 """Orchestrates one Early Bird scan run:
 
-  1. Load watchlist + dedup state.
+  1. Load watchlist.
   2. Fetch latest announcements per company (Newsweb for Oslo Bors names,
      generic IR/RSS fetch for everyone else).
-  3. Keep only items published within the lookback window (1 day, or back
-     to Saturday if today is Monday) that haven't been emailed already.
+  3. Keep only items published within the lookback window (since 08:30 Oslo
+     the day before, or Friday 08:30 on Mondays). This is the ONLY filter on
+     what can appear in an email -- there is deliberately no persistent
+     "already sent" blacklist, so the same relevant item legitimately
+     reappears in every run whose window still covers it. Concretely: both
+     the 07:32 and 08:02 Oslo runs on a given day share the same window and
+     will both carry the same item, and it can carry into the next day's
+     two runs too if it's still within their own window. This is by design
+     (Jonas: items must never be silently "used up" by an earlier send --
+     completeness across all runs in the window matters more than avoiding
+     repetition).
   4. Ask Claude to filter for relevance and draft headline + comment.
   5. Email the result via Resend (skipped if nothing relevant was found).
-  6. Persist updated dedup state.
 
 Run with: python -m src.main
 """
 import os
 import sys
 from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from dateutil import parser as dateparser
 
 from src.watchlist import load_companies
-from src.state import load_seen, save_seen, item_id
 from src.fetch_newsweb import fetch_issuer_messages
 from src.fetch_ir import fetch_company_news, fetch_article_body
 from src.fetch_news_aggregator import fetch_news_aggregator
@@ -31,7 +39,6 @@ def lookback_cutoff(now_utc: datetime) -> datetime:
     'since yesterday's 08:30 Oslo' -- not a rolling 24h from whenever this
     particular run happens to fire. On Mondays, back up to last Friday
     08:30 so weekend news isn't missed."""
-    from zoneinfo import ZoneInfo
     oslo = ZoneInfo("Europe/Oslo")
     local_now = now_utc.astimezone(oslo)
     days_back = 3 if local_now.weekday() == 0 else 1  # Monday -> back to Friday
@@ -42,13 +49,10 @@ def lookback_cutoff(now_utc: datetime) -> datetime:
 
 def is_recent_enough(published_raw, cutoff: datetime) -> bool:
     if not published_raw:
-        # No verifiable publish date. Relying on dedup alone (the old
-        # behaviour) meant the first crawl of any page dumped its whole
-        # front page of *old* headlines as if they were new -- that's what
-        # sent three stale SED Energy items -- and it wasted tokens shipping
-        # stale headlines to the model. If we can't confirm it's inside the
-        # window, drop it. fetch_ir now works hard to extract a date, so real
-        # new items still carry one.
+        # No verifiable publish date. Without dedup as a safety net anymore,
+        # an undated item can NEVER be excluded once it's stale, so if we
+        # can't confirm it's inside the window, drop it. fetch_ir works
+        # hard to extract a date, so real new items still carry one.
         return False
     try:
         dt = dateparser.parse(published_raw)
@@ -72,7 +76,7 @@ def is_recent_enough(published_raw, cutoff: datetime) -> bool:
         return False
 
 
-def collect_candidates(companies, cutoff, seen_ids):
+def collect_candidates(companies, cutoff):
     candidates = []
     for company in companies:
         items = []
@@ -96,12 +100,8 @@ def collect_candidates(companies, cutoff, seen_ids):
         for item in items:
             if not is_recent_enough(item.get("published"), cutoff):
                 continue
-            iid = item_id(item["url"], item["title"])
-            if iid in seen_ids:
-                continue
             item["company"] = company["name"]
             item["recommendation"] = company.get("recommendation")
-            item["_id"] = iid
             candidates.append(item)
     return candidates
 
@@ -138,10 +138,9 @@ def main():
     cutoff = lookback_cutoff(now)
 
     companies = load_companies()
-    seen_ids = load_seen()
 
-    candidates = collect_candidates(companies, cutoff, seen_ids)
-    print(f"[main] {len(candidates)} candidate items after recency+dedup filtering")
+    candidates = collect_candidates(companies, cutoff)
+    print(f"[main] {len(candidates)} candidate items after recency filtering")
     for c in candidates:
         print(f"[main]   candidate: company={c['company']!r} published={c.get('published')!r} "
               f"title={c['title'][:100]!r}")
@@ -175,26 +174,7 @@ def main():
         try:
             send_digest(subject, html)
         except Exception as e:
-            # Don't let an email failure blow away dedup state / fail the
-            # whole run -- log it loudly and keep going. The next successful
-            # run's state save is what prevents these items from piling up.
             print(f"[main] ERROR: failed to send digest email: {e}", file=sys.stderr)
-
-    # Mark fetched candidates as seen so irrelevant IR-scrape noise doesn't
-    # get re-evaluated (and re-cost tokens) every run. But Newsweb items are
-    # rare, official regulatory disclosures, not high-volume noise -- a single
-    # LLM relevance-filter miss must not permanently bury a real corporate
-    # disclosure with no way to recover (this is exactly what happened to a
-    # TGS divestment announcement: the model wrongly dropped it once, it got
-    # marked seen anyway, and it silently vanished for good). So only mark a
-    # Newsweb item seen once it's actually been kept (and thus sent) -- a
-    # missed one gets another chance on the next run until it ages out of the
-    # recency window.
-    for c in candidates:
-        is_newsweb = c["source"].startswith("Newsweb")
-        if not is_newsweb or c["url"] in kept_urls:
-            seen_ids.add(c["_id"])
-    save_seen(seen_ids)
 
 
 if __name__ == "__main__":

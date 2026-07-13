@@ -39,7 +39,8 @@ between two of the categories below, keep it.
    KEEP if it is any of these (this is the value-add list -- read broadly, not narrowly):
    a. Contracts / awards / orders / tenders won / frame agreements / LOIs / MOUs with commercial \
 substance -- ANY size, and INCLUDE even when the value is undisclosed if the scope or counterparty \
-is notable. (e.g. a multi-year supply or power-generation agreement, a rig contract, a subsea award.)
+is notable. (e.g. a multi-year supply or power-generation agreement, a rig contract, a subsea award, \
+a supply/offtake agreement naming a real counterparty even without a disclosed volume or price.)
    b. M&A and portfolio moves: acquisitions, divestments/asset sales, mergers, farm-in/farm-out, \
 material stake changes, takeover approaches. (A divestment like "TGS sells its North American well \
 data business to Enverus for USD 100m+" is exactly this -- always keep.)
@@ -48,26 +49,27 @@ first oil/gas, production start or ramp, material reserve/resource updates, lice
 PDO/plan approvals.
    d. Capital & balance-sheet actions that move value: new or expanded buybacks, dividend \
 initiation/change, capital raises, material refinancing or debt issuance, credit-rating changes.
-   e. Quarterly/interim results, trading updates and operational updates THAT CARRY ACTUAL FIGURES -- \
-production volumes, revenue/EBITDA/earnings numbers, price achievement, rig/fleet counts, backlog, \
-order intake, guidance, or any other concrete operational or financial datapoint. KEEP these whenever \
-real numbers are present, even if nothing in them looks surprising -- a portfolio manager wants the \
-quarter's numbers regardless of whether they beat or missed. This includes routine-sounding releases \
-like "[Company] second quarter 2026 trading update" -- if it has figures, it's in.
-   f. Driller / OSV market data points: new contracts, day rates, extensions/terminations, \
-utilisation or fleet changes, newbuild or vessel sale-and-purchase transactions.
-   g. Regulatory / legal / political events with real financial impact: approvals, sanctions, fines, \
+   e. Driller / OSV market activity data points: new contracts, day rates, extensions/terminations, \
+utilisation or fleet changes, rig/vessel contract coverage and backlog, newbuild or vessel \
+sale-and-purchase transactions. (e.g. "11 of 11 rigs employed, 97% utilisation, backlog of USD 26.9m" \
+is exactly this -- keep.) This is about market activity, NOT a company's own quarterly financial \
+results -- see the DROP rule below for that distinction.
+   f. Regulatory / legal / political events with real financial impact: approvals, sanctions, fines, \
 licensing or tax changes, litigation with material exposure, major sector policy (e.g. OPEC decisions).
-   h. Major operational disruptions: outages, incidents, force majeure, strikes that affect \
+   g. Major operational disruptions: outages, incidents, force majeure, strikes that affect \
 production or earnings.
-   i. Sector / macro items even without one named company: cross-company M&A, large tenders, \
+   h. Sector / macro items even without one named company: cross-company M&A, large tenders, \
 oil-price-moving data, big inventory surprises.
 
    DROP (routine noise, NOT value-add -- keep this list narrow):
+   - Quarterly/interim FINANCIAL RESULTS releases -- revenue, EBITDA, earnings, per-period guidance \
+reaffirmation, and similar company-reported financial datapoints tied to a reporting period. DROP \
+these even when real figures are attached and even if nothing in them looks surprising -- Early Bird \
+does not carry routine quarterly numbers, full stop. This includes releases like "[Company] second \
+quarter 2026 revenue of EUR Xm". Do NOT confuse this with (e) above: rig/vessel utilisation, day \
+rates, and contract backlog are market activity signals, not a financial-results release, and stay in.
    - A pure announcement that a results presentation/webcast WILL happen, with no figures attached \
--- "Invitation to Q2 2026 results presentation", "save the date", financial calendar notices. These \
-carry zero data, unlike (e) above. If the item has even one concrete figure in it, it is NOT this \
-category -- it's (e), and it stays in.
+-- "Invitation to Q2 2026 results presentation", "save the date", financial calendar notices.
    - Routine primary-insider dealing notices ("meldepliktig handel primaerinnsider" / "mandatory \
 notification of trade") and holdings / voting-rights (flagging) notices -- UNLESS unusually large \
 or a clear activist/strategic build.
@@ -80,15 +82,28 @@ P&L impact.
 (keep the one with the most detail, drop the rest).
 2. For each item you keep, write:
    - "headline":
-     - If the item is about a single company: "Company (Rec) – short description of what happened". \
-Use the "recommendation" field given in the input verbatim as Rec. If "recommendation" is null/missing \
-(we don't cover that company), DROP the parenthesis entirely.
+     - If the item is about a single company we cover (recommendation is not null/missing): \
+"Company (Rec) – short description of what happened".
+     - If the item is a field development / E&P milestone (KEEP category c above) about a company we do \
+NOT cover (recommendation is null/missing): use "Field Development – short description" instead of the \
+company's name as the subject -- name the company inside the description/comment instead. \
+(e.g. "Field Development – Aramco launches bid process for the sixth phase of the Jafurah gas project", \
+not "Saudi Aramco – Launches bid process...".)
+     - For any other single-company item about a company we do NOT cover (contract award, M&A, etc. \
+-- anything outside category c): "Company – short description", same as a covered company but with no \
+parenthesis.
      - If the item is a sector-wide/macro item not tied to one company (M&A between two companies, a \
-tender, a macro data release, a field development): "Topic – short description".
-     - Use an en dash "–" (not a hyphen) between the company/topic part and the description.
+tender, a macro data release): "Topic – short description".
+     - Use an en dash "–" (not a hyphen) between the subject (company/"Field Development"/topic) and \
+the description.
    - "comment": Neutral, fact-dense analyst house style -- see the real examples below.
      - Tone: neutral and factual. No adjectives, no filler, no editorializing ("impressive", \
 "strong", "notably", "importantly", etc.) -- state what happened and let the facts carry the weight.
+     - Never quote or paraphrase a company's own self-promotional characterisation of its assets or \
+strategy (e.g. calling a project the "jewel" of its portfolio, "world-class", "flagship", \
+"cutting-edge") -- that is marketing language, not analyst content, and must be dropped even when it \
+appears in the source. Keep the hard facts those sentences were wrapped around (a resource estimate, a \
+capacity figure, a location) but state them plainly.
      - Sentence structure: lead with the time reference (when it was announced/happened), then the \
 concrete event (what happened), then the figures/context (numbers, scope, counterparties, locations, \
 timeline). Follow this order within each sentence and across the paragraph, mirroring the real \
@@ -123,6 +138,8 @@ Real examples of the target house style (for tone/format only -- do not reuse th
 {"headline": "Hexagon Composites (Buy) – Landmark Mobile Pipeline order supports re-rating", "comment": "On 3 July, the company announced its largest-ever Mobile Pipeline order. The contract with Certarus is valued at USD 100m (c. NOK 1bn) and includes an option for up to USD 25m (c. NOK 250m) of additional modules through 2028. Deliveries begin shortly and will be completed over 12 months. The order improves earnings visibility and reinforces the company's attractive exposure to the rapidly growing datacentre market. Share price positive."}
 
 {"headline": "Patterson-UTI – Reports June 2026 US drilling activity", "comment": "Patterson-UTI reported yesterday that it had an average of 95 drilling rigs operating in the United States during June 2026, down 8.7% from 104 rigs in June 2025. For the three months ended 30 June 2026, the average was 92 rigs operating in the US."}
+
+{"headline": "Field Development – Aramco launches bid process for the sixth phase of the Jafurah gas project", "comment": "Aramco this morning launched the bid process for the sixth development phase of its Jafurah unconventional gas project, with recoverable resources across the field estimated at 229 trillion cubic feet. No financial or timeline details were disclosed."}
 """
 
 
@@ -150,6 +167,13 @@ def draft_entries(candidate_items: List[Dict], api_key: str = None) -> List[Dict
         },
         timeout=180,
     )
+    if not resp.ok:
+        # requests.HTTPError's default message drops the response body, which
+        # is exactly where Anthropic puts the actual reason for a 400 (bad
+        # param, context/token limit, etc.) -- confirmed live: a plain
+        # raise_for_status() on a real 400 left nothing but "Bad Request" in
+        # the run log, with no way to tell what was actually wrong.
+        print(f"[draft] ERROR: Anthropic API returned {resp.status_code}: {resp.text[:2000]}")
     resp.raise_for_status()
     payload = resp.json()
     text = "".join(block.get("text", "") for block in payload.get("content", []))
