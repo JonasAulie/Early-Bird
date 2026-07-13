@@ -162,12 +162,18 @@ def draft_entries(candidate_items: List[Dict], api_key: str = None) -> List[Dict
         json={
             "model": MODEL,
             "max_tokens": 16000,
-            "temperature": 0,
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_content}],
         },
         timeout=180,
     )
+    if not resp.ok:
+        # requests.HTTPError's default message drops the response body, which
+        # is exactly where Anthropic puts the actual reason for a 400 (bad
+        # param, context/token limit, etc.) -- confirmed live: a plain
+        # raise_for_status() on a real 400 left nothing but "Bad Request" in
+        # the run log, with no way to tell what was actually wrong.
+        print(f"[draft] ERROR: Anthropic API returned {resp.status_code}: {resp.text[:2000]}")
     resp.raise_for_status()
     payload = resp.json()
     text = "".join(block.get("text", "") for block in payload.get("content", []))
