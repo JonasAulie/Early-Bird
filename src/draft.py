@@ -39,7 +39,8 @@ between two of the categories below, keep it.
    KEEP if it is any of these (this is the value-add list -- read broadly, not narrowly):
    a. Contracts / awards / orders / tenders won / frame agreements / LOIs / MOUs with commercial \
 substance -- ANY size, and INCLUDE even when the value is undisclosed if the scope or counterparty \
-is notable. (e.g. a multi-year supply or power-generation agreement, a rig contract, a subsea award.)
+is notable. (e.g. a multi-year supply or power-generation agreement, a rig contract, a subsea award, \
+a supply/offtake agreement naming a real counterparty even without a disclosed volume or price.)
    b. M&A and portfolio moves: acquisitions, divestments/asset sales, mergers, farm-in/farm-out, \
 material stake changes, takeover approaches. (A divestment like "TGS sells its North American well \
 data business to Enverus for USD 100m+" is exactly this -- always keep.)
@@ -48,26 +49,27 @@ first oil/gas, production start or ramp, material reserve/resource updates, lice
 PDO/plan approvals.
    d. Capital & balance-sheet actions that move value: new or expanded buybacks, dividend \
 initiation/change, capital raises, material refinancing or debt issuance, credit-rating changes.
-   e. Quarterly/interim results, trading updates and operational updates THAT CARRY ACTUAL FIGURES -- \
-production volumes, revenue/EBITDA/earnings numbers, price achievement, rig/fleet counts, backlog, \
-order intake, guidance, or any other concrete operational or financial datapoint. KEEP these whenever \
-real numbers are present, even if nothing in them looks surprising -- a portfolio manager wants the \
-quarter's numbers regardless of whether they beat or missed. This includes routine-sounding releases \
-like "[Company] second quarter 2026 trading update" -- if it has figures, it's in.
-   f. Driller / OSV market data points: new contracts, day rates, extensions/terminations, \
-utilisation or fleet changes, newbuild or vessel sale-and-purchase transactions.
-   g. Regulatory / legal / political events with real financial impact: approvals, sanctions, fines, \
+   e. Driller / OSV market activity data points: new contracts, day rates, extensions/terminations, \
+utilisation or fleet changes, rig/vessel contract coverage and backlog, newbuild or vessel \
+sale-and-purchase transactions. (e.g. "11 of 11 rigs employed, 97% utilisation, backlog of USD 26.9m" \
+is exactly this -- keep.) This is about market activity, NOT a company's own quarterly financial \
+results -- see the DROP rule below for that distinction.
+   f. Regulatory / legal / political events with real financial impact: approvals, sanctions, fines, \
 licensing or tax changes, litigation with material exposure, major sector policy (e.g. OPEC decisions).
-   h. Major operational disruptions: outages, incidents, force majeure, strikes that affect \
+   g. Major operational disruptions: outages, incidents, force majeure, strikes that affect \
 production or earnings.
-   i. Sector / macro items even without one named company: cross-company M&A, large tenders, \
+   h. Sector / macro items even without one named company: cross-company M&A, large tenders, \
 oil-price-moving data, big inventory surprises.
 
    DROP (routine noise, NOT value-add -- keep this list narrow):
+   - Quarterly/interim FINANCIAL RESULTS releases -- revenue, EBITDA, earnings, per-period guidance \
+reaffirmation, and similar company-reported financial datapoints tied to a reporting period. DROP \
+these even when real figures are attached and even if nothing in them looks surprising -- Early Bird \
+does not carry routine quarterly numbers, full stop. This includes releases like "[Company] second \
+quarter 2026 revenue of EUR Xm". Do NOT confuse this with (e) above: rig/vessel utilisation, day \
+rates, and contract backlog are market activity signals, not a financial-results release, and stay in.
    - A pure announcement that a results presentation/webcast WILL happen, with no figures attached \
--- "Invitation to Q2 2026 results presentation", "save the date", financial calendar notices. These \
-carry zero data, unlike (e) above. If the item has even one concrete figure in it, it is NOT this \
-category -- it's (e), and it stays in.
+-- "Invitation to Q2 2026 results presentation", "save the date", financial calendar notices.
    - Routine primary-insider dealing notices ("meldepliktig handel primaerinnsider" / "mandatory \
 notification of trade") and holdings / voting-rights (flagging) notices -- UNLESS unusually large \
 or a clear activist/strategic build.
@@ -160,6 +162,7 @@ def draft_entries(candidate_items: List[Dict], api_key: str = None) -> List[Dict
         json={
             "model": MODEL,
             "max_tokens": 16000,
+            "temperature": 0,
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_content}],
         },
