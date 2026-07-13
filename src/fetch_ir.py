@@ -157,13 +157,28 @@ _DATE_HINT_RE = re.compile(
 _HREF_DATE_RE = re.compile(r"(20\d{2})[/\-](\d{1,2})[/\-](\d{1,2})")
 
 # A time-of-day immediately trailing a date hint, e.g. Equinor's IR listing
-# renders headlines as "10 July 2026|08:00 (CEST)Equinor's second quarter...".
-# Without this, _extract_published only ever captured "10 July 2026" and
-# dateutil defaulted the missing time to midnight -- which then hit the
-# date-only "whole day counts" fallback in main.py's recency filter and let
-# an item genuinely published at 08:00 (30 minutes before the real 08:30
-# Oslo cutoff) slip in as if it were still within the prior day's window.
-_TIME_HINT_RE = re.compile(r"\s*\|?\s*(\d{1,2}:\d{2})\s*\(?\s*([A-Za-z]{2,5})?\s*\)?")
+# renders headlines as "10 July 2026|08:00 (CEST)Equinor's second quarter...",
+# and Eni's as "13 July 2026 - 1:00 PM CESTEni and BMW Group...". Without
+# this, _extract_published only ever captured the date and dateutil
+# defaulted the missing time to midnight -- which then hit the date-only
+# "whole day counts" fallback in main.py's recency filter and let an item
+# genuinely published shortly before the real 08:30 Oslo cutoff slip in as
+# if it were still within the prior day's window (confirmed live for
+# Equinor's "|08:00" case; a second real format, Eni's " - 1:00 PM", was
+# separately confirmed to fall through this same regex before this fix --
+# it happened not to matter that time since 1pm is well after any cutoff,
+# but a morning item in that format would have hit the exact same bug).
+# Timezone abbreviation matched against an explicit list, not a generic
+# \w{2,5} -- the source text runs straight into the headline with no
+# separator ("...CESTEni and BMW..."), and a generic greedy quantifier
+# silently over-matched into "CESTE" (swallowing the headline's first
+# letter), which no longer matched anything recognizable and quietly
+# dropped the timezone localization instead of just failing loudly.
+_TZ_ABBR = r"CEST|CET|GMT|UTC|BST|EST|EDT|CST|CDT|MST|MDT|PST|PDT"
+_TIME_HINT_RE = re.compile(
+    rf"\s*[-|]?\s*(\d{{1,2}}:\d{{2}})\s*([AaPp]\.?[Mm]\.?)?\s*\(?\s*({_TZ_ABBR})?\s*\)?",
+    re.IGNORECASE,
+)
 
 # Machine-readable date attributes many CMSs emit next to a headline, e.g.
 # <time datetime="2026-07-08T09:00:00Z">8 Jul</time>. get_text() throws these
@@ -258,7 +273,7 @@ def _extract_published(anchor, href: str):
             # _TIME_HINT_RE for why this matters for the recency cutoff.
             time_hint = _TIME_HINT_RE.match(text[hint.end():hint.end() + 20])
             if time_hint:
-                date_str = f"{date_str} {time_hint.group(0).strip(' |')}"
+                date_str = f"{date_str} {time_hint.group(0).strip(' |-')}"
             parsed = _parse_date_string(date_str)
             if parsed:
                 return parsed
