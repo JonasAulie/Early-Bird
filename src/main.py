@@ -1,17 +1,21 @@
 """Orchestrates one Early Bird scan run:
 
-  1. Load watchlist + dedup state.
+  1. Load watchlist.
   2. Fetch latest announcements per company (Newsweb for Oslo Bors names,
      generic IR/RSS fetch for everyone else).
-  3. Keep only items published within the lookback window (1 day, or back
-     to Saturday if today is Monday) that haven't been emailed already.
+  3. Keep only items published within the lookback window (since 08:30 Oslo
+     the day before, or Friday 08:30 on Mondays). This is the ONLY filter on
+     what can appear in an email -- there is deliberately no persistent
+     "already sent" blacklist, so the same relevant item legitimately
+     reappears in every run whose window still covers it. Concretely: both
+     the 07:32 and 08:02 Oslo runs on a given day share the same window and
+     will both carry the same item, and it can carry into the next day's
+     two runs too if it's still within their own window. This is by design
+     (Jonas: items must never be silently "used up" by an earlier send --
+     completeness across all runs in the window matters more than avoiding
+     repetition).
   4. Ask Claude to filter for relevance and draft headline + comment.
   5. Email the result via Resend (skipped if nothing relevant was found).
-     The 07:32 and 08:02 Oslo runs read as one cumulative morning digest --
-     the 08:02 email includes whatever the 07:32 run already sent today,
-     plus whatever's newly kept, so reading only one mail still shows
-     everything (see load_today_entries/save_seen in state.py).
-  6. Persist updated dedup state.
 
 Run with: python -m src.main
 """
@@ -22,7 +26,6 @@ from zoneinfo import ZoneInfo
 from dateutil import parser as dateparser
 
 from src.watchlist import load_companies
-from src.state import load_seen, save_seen, load_today_entries, item_id
 from src.fetch_newsweb import fetch_issuer_messages
 from src.fetch_ir import fetch_company_news, fetch_article_body
 from src.fetch_news_aggregator import fetch_news_aggregator
@@ -46,13 +49,10 @@ def lookback_cutoff(now_utc: datetime) -> datetime:
 
 def is_recent_enough(published_raw, cutoff: datetime) -> bool:
     if not published_raw:
-        # No verifiable publish date. Relying on dedup alone (the old
-        # behaviour) meant the first crawl of any page dumped its whole
-        # front page of *old* headlines as if they were new -- that's what
-        # sent three stale SED Energy items -- and it wasted tokens shipping
-        # stale headlines to the model. If we can't confirm it's inside the
-        # window, drop it. fetch_ir now works hard to extract a date, so real
-        # new items still carry one.
+        # No verifiable publish date. Without dedup as a safety net anymore,
+        # an undated item can NEVER be excluded once it's stale, so if we
+        # can't confirm it's inside the window, drop it. fetch_ir works
+        # hard to extract a date, so real new items still carry one.
         return False
     try:
         dt = dateparser.parse(published_raw)
@@ -76,7 +76,7 @@ def is_recent_enough(published_raw, cutoff: datetime) -> bool:
         return False
 
 
-def collect_candidates(companies, cutoff, seen_ids):
+def collect_candidates(companies, cutoff):
     candidates = []
     for company in companies:
         items = []
@@ -100,17 +100,8 @@ def collect_candidates(companies, cutoff, seen_ids):
         for item in items:
             if not is_recent_enough(item.get("published"), cutoff):
                 continue
-            # Aggregator-sourced items (see fetch_news_aggregator.py) carry a
-            # stable "dedup_key" because their real "url" is a per-fetch
-            # redirect token that changes on every re-poll of the same
-            # story -- hashing that directly would never dedupe. Everything
-            # else still identifies by url+title as before.
-            iid = item_id(item.get("dedup_key", item["url"]), item["title"])
-            if iid in seen_ids:
-                continue
             item["company"] = company["name"]
             item["recommendation"] = company.get("recommendation")
-            item["_id"] = iid
             candidates.append(item)
     return candidates
 
@@ -145,18 +136,11 @@ def main():
         print("[main] FORCE_RUN set, bypassing the Oslo-time slot check")
 
     cutoff = lookback_cutoff(now)
-    # Oslo-local calendar date, not the UTC one -- the 07:32 and 08:02 runs
-    # both fall on the same Oslo morning even though a UTC-date rollover
-    # could sit between them around midnight in edge cases, and this is what
-    # decides whether today's carryover digest below still applies.
-    today_str = now.astimezone(ZoneInfo("Europe/Oslo")).date().isoformat()
 
     companies = load_companies()
-    seen_ids = load_seen()
-    today_entries = load_today_entries(today_str)
 
-    candidates = collect_candidates(companies, cutoff, seen_ids)
-    print(f"[main] {len(candidates)} candidate items after recency+dedup filtering")
+    candidates = collect_candidates(companies, cutoff)
+    print(f"[main] {len(candidates)} candidate items after recency filtering")
     for c in candidates:
         print(f"[main]   candidate: company={c['company']!r} published={c.get('published')!r} "
               f"title={c['title'][:100]!r}")
@@ -184,40 +168,13 @@ def main():
         if c["url"] not in kept_urls:
             print(f"[main]   dropped by relevance filter: company={c['company']!r} title={c['title'][:100]!r}")
 
-    # The 07:32 and 08:02 Oslo runs are meant to read as one cumulative
-    # morning digest, not two independent partial ones -- so the email body
-    # carries forward whatever an earlier run today already sent (today_entries)
-    # plus whatever is newly kept this run, so a reader who only opens the
-    # 08:02 mail still sees everything from that morning. Only actually SEND
-    # when there's something new this run, though -- a carryover-only email
-    # would just be a duplicate of the one already sent.
-    combined_entries = today_entries + entries
     if entries:
-        html = render_html(combined_entries)
+        html = render_html(entries)
         subject = f"Early Bird utkast -- {datetime.now().strftime('%d.%m.%Y %H:%M')}"
         try:
             send_digest(subject, html)
         except Exception as e:
-            # Don't let an email failure blow away dedup state / fail the
-            # whole run -- log it loudly and keep going. The next successful
-            # run's state save is what prevents these items from piling up.
             print(f"[main] ERROR: failed to send digest email: {e}", file=sys.stderr)
-
-    # Mark fetched candidates as seen so irrelevant IR-scrape noise doesn't
-    # get re-evaluated (and re-cost tokens) every run. But Newsweb items are
-    # rare, official regulatory disclosures, not high-volume noise -- a single
-    # LLM relevance-filter miss must not permanently bury a real corporate
-    # disclosure with no way to recover (this is exactly what happened to a
-    # TGS divestment announcement: the model wrongly dropped it once, it got
-    # marked seen anyway, and it silently vanished for good). So only mark a
-    # Newsweb item seen once it's actually been kept (and thus sent) -- a
-    # missed one gets another chance on the next run until it ages out of the
-    # recency window.
-    for c in candidates:
-        is_newsweb = c["source"].startswith("Newsweb")
-        if not is_newsweb or c["url"] in kept_urls:
-            seen_ids.add(c["_id"])
-    save_seen(seen_ids, today_str, combined_entries)
 
 
 if __name__ == "__main__":
