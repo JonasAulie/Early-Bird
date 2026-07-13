@@ -100,7 +100,12 @@ def collect_candidates(companies, cutoff, seen_ids):
         for item in items:
             if not is_recent_enough(item.get("published"), cutoff):
                 continue
-            iid = item_id(item["url"], item["title"])
+            # Aggregator-sourced items (see fetch_news_aggregator.py) carry a
+            # stable "dedup_key" because their real "url" is a per-fetch
+            # redirect token that changes on every re-poll of the same
+            # story -- hashing that directly would never dedupe. Everything
+            # else still identifies by url+title as before.
+            iid = item_id(item.get("dedup_key", item["url"]), item["title"])
             if iid in seen_ids:
                 continue
             item["company"] = company["name"]

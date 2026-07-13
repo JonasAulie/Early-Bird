@@ -81,5 +81,14 @@ def _entries_to_items(entries, company_id: str, source_label: str) -> List[Dict]
             "published": entry.get("published"),
             "summary": entry.get("summary"),
             "source": f"{source_label} ({company_id})",
+            # Google/Bing News RSS wrap the real article URL in a redirect
+            # link that embeds a per-fetch token -- the SAME story gets a
+            # DIFFERENT "link" value every time the feed is re-polled, which
+            # silently defeated url-based dedup and let the same Aramco
+            # story keep reappearing as if new on every run. The headline
+            # text itself is stable across re-polls (it's cached article
+            # metadata, not regenerated), so use company+title instead of
+            # the volatile URL as the dedup identity for aggregator items.
+            "dedup_key": f"aggregator:{company_id}:{' '.join(title.split()).lower()}",
         })
     return out
