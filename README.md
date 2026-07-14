@@ -360,16 +360,30 @@ python -m src.main
 
 ## Tidspunkt
 
-Jobben er ment å kjøre kl. 07:32 og 08:02 norsk tid (07:02 fjernet, kun to
-kjøringer per dag nå). GitHub Actions cron er alltid UTC og håndterer ikke
-sommertid automatisk, så workflow-filen trigger litt oftere enn nødvendig i
-UTC, og `src/schedule_guard.py` avgjør basert på faktisk Oslo-lokal tid om
-denne kjøringen faktisk skal gjøre noe (ellers avsluttes den umiddelbart
+Hver utgave sendes **tre ganger** (lagt til 14. juli 2026):
+
+- **16:00 dagen før** — et tidlig varsel. Kjører søndag–torsdag (dagen før
+  hver av mandag–fredag-utgavene; ingen kjøring fredag/lørdag ettersom det
+  ikke finnes noen lørdag/søndag-utgave å varsle om).
+- **07:32** og **08:02** samme morgen som utgaven er for — de to opprinnelige
+  kjøringene.
+
+Alle tre er uavhengige scan-og-send-kjøringer med identisk kode — ingen delt
+tilstand eller dedup mellom dem. 16:00-varselet kan derfor avvike fra
+morgen-utgaven hvis det kommer nytt stoff i mellomtiden (helt tilsiktet, ikke
+en bug).
+
+GitHub Actions cron er alltid UTC og håndterer ikke sommertid automatisk, så
+workflow-filen trigger litt oftere enn nødvendig i UTC, og
+`src/schedule_guard.py` avgjør basert på faktisk Oslo-lokal tid (og ukedag)
+om denne kjøringen faktisk skal gjøre noe (ellers avsluttes den umiddelbart
 uten kostnad).
 
-Tidsvinduet for hva som regnes som "nytt" er fast: siden kl. 08:30 Oslo-tid
-dagen før (fredag 08:30 på mandager, for å dekke helgen), ikke en rullerende
-24-timers periode fra når jobben tilfeldigvis kjører.
+Tidsvinduet for hva som regnes som "nytt" i selve scan-logikken er fast:
+siden kl. 08:30 Oslo-tid dagen før (fredag 08:30 på mandager, for å dekke
+helgen), ikke en rullerende 24-timers periode fra når jobben tilfeldigvis
+kjører. Dette er separat fra spørsmålet om *når på dagen* en kjøring skal
+skje, som er det `schedule_guard.py` styrer.
 
 ### Backup-trigger (GitHub sin schedule er "best effort")
 
@@ -396,8 +410,11 @@ prøve på nytt. Rutinene er fjernet 14. juli — en LLM-økt i loopen viste seg
 **Nåværende løsning (fra 14. juli): ren HTTP-ekstern cron, ingen AI-økt i
 loopen.** En ekstern tidsstyringstjeneste (f.eks. cron-job.org, som
 håndterer sommertid automatisk via IANA-tidssonen `Europe/Oslo`) gjør et
-autentisert `POST`-kall direkte mot GitHub sitt REST-API kl. 07:32 og 08:02
-Oslo-tid:
+autentisert `POST`-kall direkte mot GitHub sitt REST-API — tre separate
+cronjobber, én per tidspunkt (07:32, 08:02, 16:00), alle satt til "every
+day"; `schedule_guard.py` no-opper trygt de ukedagene et gitt tidspunkt ikke
+skal sende (helg for morgen-slottene, fredag/lørdag for 16:00-slottet), så
+det er ikke nødvendig å style dag-i-uken i selve cronjobben:
 
 ```
 POST https://api.github.com/repos/JonasAulie/Early-Bird/actions/workflows/early-bird.yml/dispatches
