@@ -379,19 +379,49 @@ i sjeldne tilfeller droppet helt, spesielt ved høy belastning på plattformen.
 Begge de planlagte kjøringene den morgenen (05:32 og 06:02 UTC) uteble helt
 uten noen synlig feil — ingen kjøring dukket opp i det hele tatt, verken
 umiddelbart eller forsinket. Dette er ikke en feil i cron-syntaksen eller
-`default_branch`-oppsettet (begge ble verifisert korrekte).
+`default_branch`-oppsettet (begge ble verifisert korrekte). Observert igjen
+13.–14. juli: GitHubs egen `schedule` kom typisk 2–3 timer for sent hver
+dag (kjørte, men langt utenfor `schedule_guard.py`s ±12-minutters vindu).
 
-Siden dette er en reell, uforutsigbar plattformbegrensning som ikke kan
-fikses fra kodesiden, er det satt opp 4 uavhengige backup-triggere (Claude
-Code Remote "Routines", utenfor GitHub sin egen cron-motor) som speiler de
-4 UTC-tidspunktene i `early-bird.yml` sin `schedule`-liste, men forskjøvet
-~8 minutter senere. Hver av dem sjekker om GitHub sin egen `schedule` alt
-har trigget en kjøring i tidsvinduet — hvis ja, gjør den ingenting (unngår
-dobbel kjøring/dobbel LLM-kostnad); hvis nei, trigger den selv en
-`workflow_dispatch` (uten `force`, så `schedule_guard.py` fortsatt avgjør
-om det faktisk er riktig Oslo-tidspunkt). Dette er ren infrastruktur utenfor
-dette repoet — ligger ikke i noen fil her, men i Claude Code sitt eget
-trigger-system knyttet til denne økten.
+**Første forsøk (10.–14. juli): Claude Code Remote "Routines" som backup.**
+Fire ephemerale AI-økter, tidsforskjøvet ~8 min etter hvert av de 4
+UTC-tidspunktene, skulle sjekke om GitHub allerede hadde trigget en
+kjøring og ellers selv kalle `workflow_dispatch`. Dette fungerte ikke i
+praksis — 0 av 8 forsøk over to påfølgende morgener klarte faktisk å
+trigge workflowen, tilsynelatende fordi hver korte økt ga opp så fort den
+traff en MCP-tilkobling som viste "still connecting" i stedet for å vente/
+prøve på nytt. Rutinene er fjernet 14. juli — en LLM-økt i loopen viste seg
+å være for skjør til å være en pålitelig backup for noe tidskritisk.
+
+**Nåværende løsning (fra 14. juli): ren HTTP-ekstern cron, ingen AI-økt i
+loopen.** En ekstern tidsstyringstjeneste (f.eks. cron-job.org, som
+håndterer sommertid automatisk via IANA-tidssonen `Europe/Oslo`) gjør et
+autentisert `POST`-kall direkte mot GitHub sitt REST-API kl. 07:32 og 08:02
+Oslo-tid:
+
+```
+POST https://api.github.com/repos/JonasAulie/Early-Bird/actions/workflows/early-bird.yml/dispatches
+Authorization: Bearer <fine-grained PAT, kun "Actions: Read and write" på dette repoet>
+Accept: application/vnd.github+json
+Content-Type: application/json
+X-GitHub-Api-Version: 2022-11-28
+
+{"ref": "claude/epic-gates-li6qlq"}
+```
+
+`workflow_dispatch` starter kjøringer nær umiddelbart (ingen
+`schedule`-kø-forsinkelse), og siden treffet skjer på nøyaktig riktig
+Oslo-tidspunkt er `schedule_guard.py`s ±12-minutters toleransevindu rikelig
+nok — `force` trenger ikke settes. GitHub sin egen upålitelige `schedule`
+i `early-bird.yml` beholdes som et helt kostnadsfritt lengre-skudd (den
+no-opper trygt via samme guard om den skulle treffe utenfor vinduet, og
+kan i sjeldne tilfeller faktisk treffe i tide). PAT-en og selve
+cron-jobb-oppsettet ligger utenfor dette repoet, hos den eksterne
+tjenesten — ikke i noen fil her.
+
+> **NB:** repoets `default_branch` er for øyeblikket `claude/epic-gates-li6qlq`
+> (en utviklings-branch, ikke `main`). `ref` i dispatch-kallet over må
+> oppdateres hvis default branch noen gang endres.
 
 ## Selskapsuniverset
 
