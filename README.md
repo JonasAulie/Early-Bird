@@ -406,7 +406,7 @@ Accept: application/vnd.github+json
 Content-Type: application/json
 X-GitHub-Api-Version: 2022-11-28
 
-{"ref": "claude/epic-gates-li6qlq"}
+{"ref": "main"}
 ```
 
 `workflow_dispatch` starter kjøringer nær umiddelbart (ingen
@@ -419,9 +419,12 @@ kan i sjeldne tilfeller faktisk treffe i tide). PAT-en og selve
 cron-jobb-oppsettet ligger utenfor dette repoet, hos den eksterne
 tjenesten — ikke i noen fil her.
 
-> **NB:** repoets `default_branch` er for øyeblikket `claude/epic-gates-li6qlq`
-> (en utviklings-branch, ikke `main`). `ref` i dispatch-kallet over må
-> oppdateres hvis default branch noen gang endres.
+> **NB:** frem til 14. juli 2026 var `default_branch` satt til en
+> utviklings-branch (`claude/epic-gates-li6qlq`) i stedet for `main`, som
+> skapte reell forvirring om hvilken branch som var "sannheten". Ryddet opp
+> samme dag: alt historikk samlet i `main`, `main` satt som default branch
+> på GitHub, og de gamle `claude/*`-branchene slettet. Denne README-en, i
+> likhet med resten av repoet, finnes nå kun på `main`.
 
 ## Selskapsuniverset
 
