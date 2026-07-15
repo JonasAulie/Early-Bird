@@ -13,7 +13,10 @@
      two runs too if it's still within their own window. This is by design
      (Jonas: items must never be silently "used up" by an earlier send --
      completeness across all runs in the window matters more than avoiding
-     repetition).
+     repetition). The 16:00 day-before preview is the one exception: it's
+     for tomorrow's edition, so its window is anchored on tomorrow (today's
+     08:30 cutoff), not shared with today's own 07:32/08:02 window -- see
+     lookback_cutoff's `preview` flag.
   4. Ask Claude to filter for relevance and draft headline + comment.
   5. Email the result via Resend (skipped if nothing relevant was found).
 
@@ -31,18 +34,31 @@ from src.fetch_ir import fetch_company_news, fetch_article_body
 from src.fetch_news_aggregator import fetch_news_aggregator
 from src.draft import draft_entries
 from src.emailer import send_digest
-from src.schedule_guard import should_run_now
+from src.schedule_guard import should_run_now, is_preview_slot
 
 
-def lookback_cutoff(now_utc: datetime) -> datetime:
+def lookback_cutoff(now_utc: datetime, preview: bool = False) -> datetime:
     """Early Bird goes out ~08:30 Oslo time, so the relevant window is
     'since yesterday's 08:30 Oslo' -- not a rolling 24h from whenever this
     particular run happens to fire. On Mondays, back up to last Friday
-    08:30 so weekend news isn't missed."""
+    08:30 so weekend news isn't missed.
+
+    The 16:00 day-before preview is *for* tomorrow's edition, not today's --
+    so its own window has to be anchored on tomorrow's date (`preview=True`
+    shifts the reference day forward by one), giving a cutoff of today's
+    08:30. Anchoring it on today's date instead (like a morning run) made
+    the preview's window overlap almost the entire span the day's own
+    07:32/08:02 editions had already covered, so anything from since
+    yesterday's 08:30 -- including stuff those morning runs already sent --
+    resurfaced in the preview too. Confirmed live 15 July: Aker BP (published
+    06:00 that morning, already in both morning editions) and an SLB deal
+    bare-dated the day before both reappeared in the 16:00 preview under the
+    old shared-with-morning cutoff."""
     oslo = ZoneInfo("Europe/Oslo")
     local_now = now_utc.astimezone(oslo)
-    days_back = 3 if local_now.weekday() == 0 else 1  # Monday -> back to Friday
-    cutoff_date = local_now - timedelta(days=days_back)
+    reference_day = local_now + timedelta(days=1) if preview else local_now
+    days_back = 3 if reference_day.weekday() == 0 else 1  # Monday -> back to Friday
+    cutoff_date = reference_day - timedelta(days=days_back)
     cutoff_local = cutoff_date.replace(hour=8, minute=30, second=0, microsecond=0)
     return cutoff_local.astimezone(timezone.utc)
 
@@ -189,7 +205,8 @@ def main():
     if force:
         print("[main] FORCE_RUN set, bypassing the Oslo-time slot check")
 
-    cutoff = lookback_cutoff(now)
+    preview = is_preview_slot(now)
+    cutoff = lookback_cutoff(now, preview=preview)
 
     companies = load_companies()
 

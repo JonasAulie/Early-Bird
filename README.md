@@ -406,10 +406,13 @@ Hver utgave sendes **tre ganger** (lagt til 14. juli 2026):
 - **07:32** og **08:02** samme morgen som utgaven er for — de to opprinnelige
   kjøringene.
 
-Alle tre er uavhengige scan-og-send-kjøringer med identisk kode — ingen delt
-tilstand eller dedup mellom dem. 16:00-varselet kan derfor avvike fra
-morgen-utgaven hvis det kommer nytt stoff i mellomtiden (helt tilsiktet, ikke
-en bug).
+Alle tre er uavhengige scan-og-send-kjøringer — ingen delt tilstand eller
+dedup mellom dem. 16:00-varselet kan derfor avvike fra morgen-utgaven hvis
+det kommer nytt stoff i mellomtiden (helt tilsiktet, ikke en bug). Den ene
+forskjellen i selve koden: 16:00-varselet regner recency-vinduet sitt fra
+dagen det er en forhåndsvisning *for* (i morgen), ikke fra dagen det faktisk
+kjører (se "Unntak lagt til 15. juli 2026" over) — ellers ville det bare
+gjenta det morgen-utgavene samme dag allerede hadde sendt.
 
 GitHub Actions cron er alltid UTC og håndterer ikke sommertid automatisk, så
 workflow-filen trigger litt oftere enn nødvendig i UTC, og
@@ -422,6 +425,21 @@ siden kl. 08:30 Oslo-tid dagen før (fredag 08:30 på mandager, for å dekke
 helgen), ikke en rullerende 24-timers periode fra når jobben tilfeldigvis
 kjører. Dette er separat fra spørsmålet om *når på dagen* en kjøring skal
 skje, som er det `schedule_guard.py` styrer.
+
+**Unntak lagt til 15. juli 2026:** "dagen før" er dagen *utgaven* er for,
+ikke dagen selve kjøringen fysisk skjer. For 07:32/08:02 er det samme dag,
+så det gjør ingen forskjell. Men 16:00-varselet er FOR i morgen sin
+utgave, ikke i dag sin — hvis det bruker samme formel som en morgen-
+kjøring (dagens dato − 1 dag), får det et vindu som i praksis er identisk
+med det morgen-kjøringene *samme* dag allerede brukte, og alt de allerede
+sendte dukker opp igjen i varselet. Bekreftet live: Aker BP (publisert
+06:00 samme morgen, allerede i begge morgen-utgavene) og en SLB-sak med
+bar dato dagen før dukket begge opp igjen i 16:00-varselet under det gamle,
+delte vinduet. `lookback_cutoff()` i `src/main.py` tar nå et `preview`-flagg
+(satt via `schedule_guard.is_preview_slot()`) som skyver referansedagen én
+dag frem før "dagen før"-utregningen kjøres — så 16:00-varselet får et
+vindu siden *dagens* 08:30 (dvs. først etter det de to morgen-utgavene
+samme dag allerede har dekket), mens morgen-kjøringene er upåvirket.
 
 ### Backup-trigger (GitHub sin schedule er "best effort")
 

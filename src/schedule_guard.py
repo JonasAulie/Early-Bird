@@ -25,6 +25,26 @@ MORNING_WEEKDAYS = {0, 1, 2, 3, 4}  # Mon-Fri: the edition itself
 PREVIEW_WEEKDAYS = {6, 0, 1, 2, 3}  # Sun-Thu: the day before a Mon-Fri edition
 
 
+def _within_slot(local_minutes: int, hour: int, minute: int) -> bool:
+    target_minutes = hour * 60 + minute
+    return abs(local_minutes - target_minutes) <= TOLERANCE_MINUTES
+
+
+def is_preview_slot(now_utc: datetime = None) -> bool:
+    """True when `now_utc` is the 16:00 day-before preview firing specifically
+    (not just any Sun-Thu firing -- the time-of-day tolerance too). main.py
+    needs to know *which* of the three sends is running so it can point the
+    recency cutoff at the edition the preview is actually for (tomorrow),
+    not at today -- so this is exposed rather than kept private to
+    should_run_now."""
+    now_utc = now_utc or datetime.now(ZoneInfo("UTC"))
+    local = now_utc.astimezone(OSLO)
+    if local.weekday() not in PREVIEW_WEEKDAYS:
+        return False
+    local_minutes = local.hour * 60 + local.minute
+    return _within_slot(local_minutes, *PREVIEW_SLOT)
+
+
 def should_run_now(now_utc: datetime = None) -> bool:
     now_utc = now_utc or datetime.now(ZoneInfo("UTC"))
     local = now_utc.astimezone(OSLO)
@@ -33,14 +53,7 @@ def should_run_now(now_utc: datetime = None) -> bool:
 
     if weekday in MORNING_WEEKDAYS:
         for hour, minute in MORNING_SLOTS:
-            target_minutes = hour * 60 + minute
-            if abs(local_minutes - target_minutes) <= TOLERANCE_MINUTES:
+            if _within_slot(local_minutes, hour, minute):
                 return True
 
-    if weekday in PREVIEW_WEEKDAYS:
-        hour, minute = PREVIEW_SLOT
-        target_minutes = hour * 60 + minute
-        if abs(local_minutes - target_minutes) <= TOLERANCE_MINUTES:
-            return True
-
-    return False
+    return is_preview_slot(now_utc)
