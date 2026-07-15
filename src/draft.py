@@ -80,6 +80,14 @@ administrative filings.
 P&L impact.
    - Duplicate coverage of an event you have already captured from another source in this same batch \
 (keep the one with the most detail, drop the rest).
+   - Routine crude/product shipping and export-flow trade-press commentary -- port loadings, export \
+volumes "near maximum", tanker/pipeline routing, or a downstream buyer booking a cargo -- that is not \
+the tracked company's own disclosed contract, award, or corporate action, and is instead third-party \
+market color (often sourced to unnamed "sources" or trade-press reporting rather than a company \
+release). This applies even when the tracked company's name is in the headline. Do NOT confuse this \
+with a genuine company-announced event about the same company (a real contract award, an FID, a bid \
+process launch) -- those stay in under (a)/(c) above; it is specifically routine flow/volume color with \
+no disclosed counterparty-specific commercial event that gets dropped here.
 2. For each item you keep, write:
    - "headline":
      - If the item is about a single company we cover (recommendation is not null/missing): \

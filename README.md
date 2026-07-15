@@ -141,6 +141,25 @@ ble hentet (selskap, dato, tittel) og alt relevansfilteret droppet — les
 run-loggen på GitHub Actions for å se nøyaktig hva som skjedde med en
 konkret sak, i stedet for å måtte skrive et eget probe-script.
 
+**Unntak lagt til 15. juli 2026:** når samme selskap har to kilder for
+samme sak — typisk Newsweb (alltid presist klokkeslett) og selskapets egen
+nyhetsside (ofte bare en bar dato, se avsnittet under om "hele dagen
+teller") — fikk den bar-dato-kopien noen ganger én ekstra dags levetid
+utover det den presise kopien selv ville fått, fordi "hele dagen
+teller"-fallbacken (se under) ikke vet at det egentlig var samme hendelse.
+Bekreftet live: en DOF Group-kontraktstildeling, publisert før 08:30 og
+korrekt ekskludert via sin presise Newsweb-tid, dukket likevel opp igjen
+neste morgen via sin bar-dato dof.no-duplikat. `collect_candidates()`
+dropper nå bar-dato-kandidaten per selskap når en presist tidsstemplet
+søsken-kandidat allerede dekker samme kalenderdato (`_dedupe_bare_date_duplicates`
+i `src/main.py`) — dette er ikke persistent dedup på tvers av kjøringer
+(fortsatt ingen state-fil), bare en sammenslåing av to kilder for samme
+hendelse innenfor én og samme kjøring, før recency-filteret. Selskaper uten
+Newsweb-dekning (typisk amerikanske/utenlandske navn som kun har en
+IR-side) er upåvirket — der finnes det ingen presis søsken-kandidat å
+sammenligne med, så "hele dagen teller"-fallbacken fungerer akkurat som før
+(det den ble laget for: SLB/Baker Hughes-tilfellet over).
+
 ## Klokkeslett i datofeltet, ikke bare kalenderdato
 
 `fetch_ir.py` fanger nå opp et klokkeslett rett etter datoen i en
@@ -211,7 +230,18 @@ juli 2026) viste 52/58 fungerende. De resterende:
   gikk `fetch_company_news()` for tidlig ut med udaterte scrape-treff i stedet
   for å falle videre til headless-nettleseren — fikset til å prøve headless
   når scrapet finner null *daterte* treff, ikke bare null treff totalt.
-  Bekreftet: gir nå ekte daterte overskrifter i produksjon.
+  Bekreftet: gir nå ekte daterte overskrifter i produksjon. (3) Oppdaget 15.
+  juli 2026: en reelt gammel sak (Baker Hughes/Twenty20 Energy gassturbin-
+  ordre, faktisk publisert 11. februar 2026) dukket likevel opp i en
+  15. juli-kjøring, tilsynelatende med en feilaktig fersk dato. Årsak:
+  `_extract_published()` utvider søket til besteforelder-noden når dato ikke
+  finnes i selve lenken/kortet — på en side der den noden omslutter *flere*
+  overskrifter (en delt liste-wrapper, ikke ett enkelt kort), kunne dette
+  plukke opp en *annen*, ferskere overskrifts dato i stedet for den faktiske
+  sakens egen. Fikset: utvidelsen stopper nå så snart scope-noden inneholder
+  mer enn denne ene overskriftens egen lenke, i stedet for å anta at en
+  hvilken som helst dato funnet i en videre node hører til akkurat denne
+  saken.
 - **Chevron** — fikset. Feil URL — den konfigurerte lenken hadde et
   query-parameter (`?contenttype=press%20release`) som ga en side med null
   daterte overskrifter; den enklere `www.chevron.com/newsroom` gir 20/20
@@ -299,7 +329,15 @@ er den IKKE i denne kategorien, den hører til (e) og skal med. Utover det:
 rutinemessige primærinnsidemeldinger og flaggemeldinger (med mindre uvanlig
 store); aksjekapital-/stemmerett-administrasjon, GF-innkallinger og
 administrative filinger; mindre personalendringer (under C-nivå); generisk
-ESG/PR/markedsføring/sponsing; duplikater av samme sak.
+ESG/PR/markedsføring/sponsing; duplikater av samme sak; rutinemessig
+skipsfarts-/eksportvolum-omtale i handelspressen (havnelasting,
+"eksporten nær maksimalnivå", en nedstrøms kjøper som bestiller en last) som
+ikke er selskapets egen kontrakt/tildeling, og som typisk siteres til
+anonyme «sources» i stedet for en selskapsmelding — selv om det tracked
+selskapets navn står i overskriften. (Lagt til 15. juli 2026 etter to reelle
+Aramco-saker av nettopp denne typen: havnelasting ved Yanbu og Zhenhuas
+lastbestilling ved en JV-raffineri — begge uten noen selskapsmelding fra
+Aramco selv.)
 
 Ved tvil: ta saken MED. Det har skjedd to ganger at filteret var for
 strengt og droppet noe det ikke skulle (TGS' salg til Enverus, og senere

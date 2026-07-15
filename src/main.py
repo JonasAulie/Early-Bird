@@ -47,33 +47,85 @@ def lookback_cutoff(now_utc: datetime) -> datetime:
     return cutoff_local.astimezone(timezone.utc)
 
 
-def is_recent_enough(published_raw, cutoff: datetime) -> bool:
+def _parsed_datetime(published_raw):
+    """Parses `published_raw` to a tz-aware datetime, or None if missing/
+    unparseable. Shared by is_recent_enough and the bare-date dedup below so
+    both agree on what counts as a real (non-midnight-default) timestamp."""
     if not published_raw:
+        return None
+    try:
+        dt = dateparser.parse(published_raw)
+    except (ValueError, OverflowError):
+        return None
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _has_time_of_day(published_raw) -> bool:
+    dt = _parsed_datetime(published_raw)
+    return dt is not None and dt.timetz().replace(tzinfo=None) != time(0, 0)
+
+
+def is_recent_enough(published_raw, cutoff: datetime) -> bool:
+    dt = _parsed_datetime(published_raw)
+    if dt is None:
         # No verifiable publish date. Without dedup as a safety net anymore,
         # an undated item can NEVER be excluded once it's stale, so if we
         # can't confirm it's inside the window, drop it. fetch_ir works
         # hard to extract a date, so real new items still carry one.
         return False
-    try:
-        dt = dateparser.parse(published_raw)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        if dt.timetz().replace(tzinfo=None) == time(0, 0):
-            # Most IR-scraped sources (unlike Newsweb) only give a bare
-            # calendar date, no time-of-day -- fetch_ir._parse_date_string
-            # defaults those to midnight. Comparing that midnight timestamp
-            # directly against an 08:30 cutoff means an item genuinely
-            # published "yesterday" always reads as yesterday-00:00, which
-            # is *before* yesterday's 08:30 cutoff -- so it gets silently
-            # dropped on every single day's run, permanently, regardless of
-            # which run processes it. Confirmed live: a real SLB/OneSubsea
-            # deal and a Baker Hughes/Kodiak Gas Services deal both never
-            # made it into any digest because of this. For date-only items,
-            # compare by calendar date instead so the whole day counts.
-            return dt.date() >= cutoff.date()
-        return dt >= cutoff
-    except (ValueError, OverflowError):
-        return False
+    if dt.timetz().replace(tzinfo=None) == time(0, 0):
+        # Most IR-scraped sources (unlike Newsweb) only give a bare
+        # calendar date, no time-of-day -- fetch_ir._parse_date_string
+        # defaults those to midnight. Comparing that midnight timestamp
+        # directly against an 08:30 cutoff means an item genuinely
+        # published "yesterday" always reads as yesterday-00:00, which
+        # is *before* yesterday's 08:30 cutoff -- so it gets silently
+        # dropped on every single day's run, permanently, regardless of
+        # which run processes it. Confirmed live: a real SLB/OneSubsea
+        # deal and a Baker Hughes/Kodiak Gas Services deal both never
+        # made it into any digest because of this. For date-only items,
+        # compare by calendar date instead so the whole day counts.
+        return dt.date() >= cutoff.date()
+    return dt >= cutoff
+
+
+def _dedupe_bare_date_duplicates(items):
+    """Same company, same calendar date, one source with a precise
+    time-of-day and another with only a bare date (defaults to midnight --
+    see is_recent_enough) almost always means the same underlying
+    announcement reported twice: once via Newsweb's precise disclosure
+    timestamp, once via the company's own news-listing page, which often
+    only shows a date. The bare-date copy then gets is_recent_enough's
+    "whole day counts" benefit-of-the-doubt fallback, which lets it survive
+    one calendar day longer than the real (precise) timestamp would allow
+    -- confirmed live: a DOF Group letter-of-award, published before the
+    08:30 cutoff and correctly excluded via its precise Newsweb timestamp,
+    still reappeared the next morning via its bare-date dof.no duplicate.
+    Drop the bare-date copy whenever a precisely-timed sibling from the same
+    company already covers that date. Companies with no precise sibling at
+    all (the common case for IR-only, non-Newsweb names) are unaffected --
+    the whole-day fallback stays intact there, which is what it exists for
+    (see is_recent_enough)."""
+    precise_dates = set()
+    for item in items:
+        if _has_time_of_day(item.get("published")):
+            dt = _parsed_datetime(item.get("published"))
+            precise_dates.add(dt.date())
+    if not precise_dates:
+        return items
+    out = []
+    for item in items:
+        raw = item.get("published")
+        if raw and not _has_time_of_day(raw):
+            dt = _parsed_datetime(raw)
+            if dt and dt.date() in precise_dates:
+                continue
+        out.append(item)
+    return out
 
 
 def collect_candidates(companies, cutoff):
@@ -96,6 +148,8 @@ def collect_candidates(companies, cutoff):
         # corporate news the direct path can never see.
         if company.get("news_aggregator_query"):
             items.extend(fetch_news_aggregator(company["news_aggregator_query"], company["id"]))
+
+        items = _dedupe_bare_date_duplicates(items)
 
         for item in items:
             if not is_recent_enough(item.get("published"), cutoff):

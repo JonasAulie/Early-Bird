@@ -261,6 +261,19 @@ def _extract_published(anchor, href: str):
     for _ in range(3):  # headline scope, then widen to its card / row
         if node is None:
             break
+        if node is not anchor:
+            # Stop widening the moment the scope contains more than this
+            # one headline's own link -- a wider ancestor that wraps
+            # multiple cards/rows (common on listing pages once you climb
+            # past the single-item card) would otherwise attribute a
+            # *different* item's date to this headline. Confirmed live: an
+            # old Baker Hughes press release (Twenty20 Energy gas turbine
+            # order, actually published 11 February) slipped through the
+            # recency filter this way, apparently having inherited a
+            # sibling headline's fresher date from a shared ancestor.
+            other_links = [a for a in node.find_all("a", href=True) if a is not anchor]
+            if other_links:
+                break
         attr_date = _attr_date_in(node)
         if attr_date:
             return attr_date
