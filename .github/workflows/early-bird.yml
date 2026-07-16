@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Run even if outside the 3 target Oslo-time slots (for manual testing)"
+        description: "Run even if outside the 2 target Oslo-time slots (for manual testing)"
         type: boolean
         default: false
   schedule:
-    # UTC times covering Oslo 07:32 / 08:02 / 16:00 across both CET
+    # UTC times covering Oslo 07:32 / 16:00 across both CET
     # (winter, UTC+1) and CEST (summer, UTC+2). schedule_guard.py no-ops
     # any firing that isn't actually close to a target Oslo time (and, for
     # 16:00, the right weekday), so this looks like more firings than we
@@ -16,9 +16,7 @@ on:
     # primary trigger is external cron-job.org calls to workflow_dispatch,
     # see README "Backup-trigger" section.
     - cron: "32 5 * * *"
-    - cron: "2 6 * * *"
     - cron: "32 6 * * *"
-    - cron: "2 7 * * *"
     - cron: "0 14 * * *"
     - cron: "0 15 * * *"
 

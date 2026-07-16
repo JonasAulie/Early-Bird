@@ -3,7 +3,8 @@
 Automatisk scanner som henter pressemeldinger/børsmeldinger for et
 selskapsunivers (se `config/watchlist.json`), filtrerer for relevans, og
 sender et utkast (overskrift + kommentar, i SEBs Early Bird-stil) på e-post
-2 ganger hver morgen (07:32 og 08:02 Oslo-tid).
+kl. 16:00 dagen før og kl. 07:32 samme morgen som utgaven er for
+(se "Tidspunkt" under).
 
 ## Hvorfor GitHub Actions (ikke Claude Code-økten)
 
@@ -117,12 +118,9 @@ Oslo-tid dagen før, eller fredag 08:30 på mandager) til relevansfilteret
 hver eneste gang jobben kjører — uavhengig av om samme sak ble sendt i en
 tidligere kjøring. I praksis betyr det:
 
-- 07:32- og 08:02-kjøringen samme dag deler samme vindu, så begge mailene
-  inneholder de samme relevante sakene (pluss ev. noe helt nytt som kom til
-  i mellomtiden) — ingen av dem er en "kun det som er nytt siden sist"-mail.
-- En sak funnet f.eks. kl. 09:30 en dag kan også dukke opp i begge
-  kjøringene neste dag også, siden den fortsatt er innenfor det vinduet.
-  Den faller naturlig ut når vinduet ruller videre (typisk etter 1–2 dager).
+- En sak funnet f.eks. kl. 09:30 en dag kan også dukke opp i 07:32-kjøringen
+  neste dag også, siden den fortsatt er innenfor det vinduet. Den faller
+  naturlig ut når vinduet ruller videre (typisk etter 1–2 dager).
 
 Dette er et bevisst valg: en sak skal aldri kunne bli "brukt opp" av en
 tidligere kjøring (manuell test eller reell) og dermed mangle fra en
@@ -417,15 +415,17 @@ python -m src.main
 
 ## Tidspunkt
 
-Hver utgave sendes **tre ganger** (lagt til 14. juli 2026):
+Hver utgave sendes **to ganger**:
 
 - **16:00 dagen før** — et tidlig varsel. Kjører søndag–torsdag (dagen før
   hver av mandag–fredag-utgavene; ingen kjøring fredag/lørdag ettersom det
   ikke finnes noen lørdag/søndag-utgave å varsle om).
-- **07:32** og **08:02** samme morgen som utgaven er for — de to opprinnelige
-  kjøringene.
+- **07:32** samme morgen som utgaven er for.
 
-Alle tre er uavhengige scan-og-send-kjøringer — ingen delt tilstand eller
+(Frem til 16. juli 2026 var det en tredje kjøring kl. 08:02 samme morgen —
+fjernet fordi den ikke lenger var nødvendig.)
+
+Begge er uavhengige scan-og-send-kjøringer — ingen delt tilstand eller
 dedup mellom dem. 16:00-varselet kan derfor avvike fra morgen-utgaven hvis
 det kommer nytt stoff i mellomtiden (helt tilsiktet, ikke en bug). Den ene
 forskjellen i selve koden: 16:00-varselet regner recency-vinduet sitt fra
@@ -446,7 +446,7 @@ kjører. Dette er separat fra spørsmålet om *når på dagen* en kjøring skal
 skje, som er det `schedule_guard.py` styrer.
 
 **Unntak lagt til 15. juli 2026:** "dagen før" er dagen *utgaven* er for,
-ikke dagen selve kjøringen fysisk skjer. For 07:32/08:02 er det samme dag,
+ikke dagen selve kjøringen fysisk skjer. For 07:32 er det samme dag,
 så det gjør ingen forskjell. Men 16:00-varselet er FOR i morgen sin
 utgave, ikke i dag sin — hvis det bruker samme formel som en morgen-
 kjøring (dagens dato − 1 dag), får det et vindu som i praksis er identisk
@@ -485,11 +485,13 @@ prøve på nytt. Rutinene er fjernet 14. juli — en LLM-økt i loopen viste seg
 **Nåværende løsning (fra 14. juli): ren HTTP-ekstern cron, ingen AI-økt i
 loopen.** En ekstern tidsstyringstjeneste (f.eks. cron-job.org, som
 håndterer sommertid automatisk via IANA-tidssonen `Europe/Oslo`) gjør et
-autentisert `POST`-kall direkte mot GitHub sitt REST-API — tre separate
-cronjobber, én per tidspunkt (07:32, 08:02, 16:00), alle satt til "every
-day"; `schedule_guard.py` no-opper trygt de ukedagene et gitt tidspunkt ikke
-skal sende (helg for morgen-slottene, fredag/lørdag for 16:00-slottet), så
-det er ikke nødvendig å style dag-i-uken i selve cronjobben:
+autentisert `POST`-kall direkte mot GitHub sitt REST-API — to separate
+cronjobber, én per tidspunkt (07:32, 16:00; 08:02-cronjobben fjernet 16.
+juli 2026 siden det tidspunktet ikke lenger skal sende), alle satt til
+"every day"; `schedule_guard.py` no-opper trygt de ukedagene et gitt
+tidspunkt ikke skal sende (helg for morgen-slotten, fredag/lørdag for
+16:00-slottet), så det er ikke nødvendig å style dag-i-uken i selve
+cronjobben:
 
 ```
 POST https://api.github.com/repos/JonasAulie/Early-Bird/actions/workflows/early-bird.yml/dispatches

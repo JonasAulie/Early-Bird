@@ -7,15 +7,14 @@
      the day before, or Friday 08:30 on Mondays). This is the ONLY filter on
      what can appear in an email -- there is deliberately no persistent
      "already sent" blacklist, so the same relevant item legitimately
-     reappears in every run whose window still covers it. Concretely: both
-     the 07:32 and 08:02 Oslo runs on a given day share the same window and
-     will both carry the same item, and it can carry into the next day's
-     two runs too if it's still within their own window. This is by design
-     (Jonas: items must never be silently "used up" by an earlier send --
+     reappears in every run whose window still covers it. Concretely: an
+     item found on the 07:32 Oslo run can carry into the next day's run
+     too if it's still within its own window. This is by design (Jonas:
+     items must never be silently "used up" by an earlier send --
      completeness across all runs in the window matters more than avoiding
      repetition). The 16:00 day-before preview is the one exception: it's
      for tomorrow's edition, so its window is anchored on tomorrow (today's
-     08:30 cutoff), not shared with today's own 07:32/08:02 window -- see
+     08:30 cutoff), not shared with today's own 07:32 window -- see
      lookback_cutoff's `preview` flag.
   4. Ask Claude to filter for relevance and draft headline + comment.
   5. Email the result via Resend (skipped if nothing relevant was found).
@@ -48,8 +47,8 @@ def lookback_cutoff(now_utc: datetime, preview: bool = False) -> datetime:
     shifts the reference day forward by one), giving a cutoff of today's
     08:30. Anchoring it on today's date instead (like a morning run) made
     the preview's window overlap almost the entire span the day's own
-    07:32/08:02 editions had already covered, so anything from since
-    yesterday's 08:30 -- including stuff those morning runs already sent --
+    07:32 edition had already covered, so anything from since
+    yesterday's 08:30 -- including stuff that morning run already sent --
     resurfaced in the preview too. Confirmed live 15 July: Aker BP (published
     06:00 that morning, already in both morning editions) and an SLB deal
     bare-dated the day before both reappeared in the 16:00 preview under the
@@ -228,7 +227,7 @@ def main():
 
     force = os.environ.get("FORCE_RUN", "").lower() == "true"
     if not force and not should_run_now(now):
-        print("[main] outside of the 4 target Oslo-time slots, skipping (DST-safe no-op)")
+        print("[main] outside of the 2 target Oslo-time slots, skipping (DST-safe no-op)")
         return
     if force:
         print("[main] FORCE_RUN set, bypassing the Oslo-time slot check")
