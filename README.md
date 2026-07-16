@@ -160,6 +160,25 @@ IR-side) er upåvirket — der finnes det ingen presis søsken-kandidat å
 sammenligne med, så "hele dagen teller"-fallbacken fungerer akkurat som før
 (det den ble laget for: SLB/Baker Hughes-tilfellet over).
 
+**Sikkerhetsnett lagt til 16. juli 2026: en dato kan aldri ligge i fremtiden.**
+En Aker Solutions/Equinor-sak om rammeavtaler for vedlikehold og
+modifikasjoner, faktisk publisert 8. januar 2026, dukket opp i 16. juli-
+utgaven som om den var ny. `is_recent_enough()` sjekket til da kun en nedre
+grense (`dt.date() >= cutoff.date()`) — den hadde ingen øvre grense, så hvis
+datoekstraksjonen et sted (`fetch_ir.py`s dato-heuristikk) noen gang regner
+seg frem til feil dato og den feilen tilfeldigvis havner *etter* cutoff
+(f.eks. en dag/måned-forbytting på en tallformatert dato uten navngitt
+måned, der en ekte 8. januar leses som 1. august), ville det ikke bare
+sluppet gjennom én gang — uten øvre grense ville den samme feilaktige
+fremtidsdatoen fortsatt lest som "innenfor vinduet" på *hver eneste* kjøring
+fremover, helt til kalenderen faktisk tok igjen den påfunne datoen. En reelt
+gammel sak ville i det minste falt naturlig ut av vinduet igjen — en feilaktig
+*fremtidig* dato ville aldri gjort det. `is_recent_enough()` tar nå også imot
+`now` og dropper (med en logget advarsel) enhver dato mer enn `FUTURE_DATE_GRACE`
+(6 timer) foran den faktiske kjøretiden, siden en ekte pressemelding aldri kan
+være publisert etter at vi skanner etter den — samme behandling som en
+udatert sak.
+
 ## Klokkeslett i datofeltet, ikke bare kalenderdato
 
 `fetch_ir.py` fanger nå opp et klokkeslett rett etter datoen i en

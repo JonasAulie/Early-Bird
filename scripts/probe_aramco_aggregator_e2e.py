@@ -29,7 +29,7 @@ def main():
 
     candidates = []
     for item in items:
-        recent = is_recent_enough(item.get("published"), cutoff)
+        recent = is_recent_enough(item.get("published"), cutoff, now)
         print(f"  recent={recent!s:5s}  published={item.get('published')!r}  "
               f"source={item['source']!r}  title={item['title'][:80]!r}")
         if recent:

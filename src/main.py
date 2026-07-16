@@ -85,13 +85,41 @@ def _has_time_of_day(published_raw) -> bool:
     return dt is not None and dt.timetz().replace(tzinfo=None) != time(0, 0)
 
 
-def is_recent_enough(published_raw, cutoff: datetime) -> bool:
+# How far after "now" a parsed publish date is allowed to sit before it's
+# treated as implausible rather than genuinely recent. Kept non-zero (rather
+# than a strict dt > now) only to tolerate ordinary timezone-offset slack in
+# a source's own timestamp -- a real disclosure is never actually published
+# ahead of when we're scanning for it.
+FUTURE_DATE_GRACE = timedelta(hours=6)
+
+
+def is_recent_enough(published_raw, cutoff: datetime, now: datetime) -> bool:
     dt = _parsed_datetime(published_raw)
     if dt is None:
         # No verifiable publish date. Without dedup as a safety net anymore,
         # an undated item can NEVER be excluded once it's stale, so if we
         # can't confirm it's inside the window, drop it. fetch_ir works
         # hard to extract a date, so real new items still carry one.
+        return False
+    if dt > now + FUTURE_DATE_GRACE:
+        # A publish date can never legitimately be in the future -- if one
+        # parses that way, the date extraction itself got the wrong value
+        # (e.g. a day/month swap on an ambiguous numeric date, or an
+        # ancestor-widening mis-attribution picking up an unrelated nearby
+        # date -- see fetch_ir.py). Confirmed live 16 July 2026: an Aker
+        # Solutions/Equinor frame-agreement release actually published 8
+        # January 2026 was carried into the 16 July digest as if new. With
+        # no upper bound here, `dt.date() >= cutoff.date()` has no way to
+        # ever reject a date that (correctly or not) reads as being after
+        # the cutoff -- and unlike a merely-stale item, a wrongly-future
+        # date doesn't even age back out of the window on its own; it would
+        # keep re-qualifying as "recent" on every single run until real
+        # calendar time caught up to the bogus date. Treat it the same as an
+        # unparseable date: drop it, and log it so a recurrence is visible
+        # in the run log instead of silently reaching an email.
+        print(f"[main] WARNING: dropping item with an implausible future published date "
+              f"{published_raw!r} (parsed as {dt.isoformat()}, now is {now.isoformat()}) -- "
+              f"likely a date-extraction bug, treating as unparseable")
         return False
     if dt.timetz().replace(tzinfo=None) == time(0, 0):
         # Most IR-scraped sources (unlike Newsweb) only give a bare
@@ -144,7 +172,7 @@ def _dedupe_bare_date_duplicates(items):
     return out
 
 
-def collect_candidates(companies, cutoff):
+def collect_candidates(companies, cutoff, now):
     candidates = []
     for company in companies:
         items = []
@@ -168,7 +196,7 @@ def collect_candidates(companies, cutoff):
         items = _dedupe_bare_date_duplicates(items)
 
         for item in items:
-            if not is_recent_enough(item.get("published"), cutoff):
+            if not is_recent_enough(item.get("published"), cutoff, now):
                 continue
             item["company"] = company["name"]
             item["recommendation"] = company.get("recommendation")
@@ -210,7 +238,7 @@ def main():
 
     companies = load_companies()
 
-    candidates = collect_candidates(companies, cutoff)
+    candidates = collect_candidates(companies, cutoff, now)
     print(f"[main] {len(candidates)} candidate items after recency filtering")
     for c in candidates:
         print(f"[main]   candidate: company={c['company']!r} published={c.get('published')!r} "

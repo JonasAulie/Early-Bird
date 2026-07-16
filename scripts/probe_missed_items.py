@@ -32,7 +32,7 @@ def probe():
         print(f"{len(items)} messages returned:")
         for it in items:
             iid = item_id(it["url"], it["title"])
-            recent = is_recent_enough(it["published"], cutoff)
+            recent = is_recent_enough(it["published"], cutoff, now)
             already_seen = iid in seen
             print(f"  published={it['published']!r}  recent_enough={recent}  "
                   f"already_seen={already_seen}  title={it['title'][:90]!r}")

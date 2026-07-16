@@ -35,7 +35,7 @@ def probe(issuer: str):
     cutoff = lookback_cutoff(now)
     print(f"\n=== recency check (now={now.isoformat()}, cutoff={cutoff.isoformat()}) ===")
     for it in items[:15]:
-        recent = is_recent_enough(it["published"], cutoff)
+        recent = is_recent_enough(it["published"], cutoff, now)
         print(f"  recent={recent}  published={it['published']!r}  title={it['title'][:80]!r}")
 
 
