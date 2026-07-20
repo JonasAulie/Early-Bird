@@ -232,7 +232,18 @@ def main():
     if force:
         print("[main] FORCE_RUN set, bypassing the Oslo-time slot check")
 
-    preview = is_preview_slot(now)
+    # is_preview_slot() picks the window based on the actual wall-clock time,
+    # which is right for real scheduled/cron-job.org firings but wrong for a
+    # manual re-run of a missed 16:00 preview (e.g. after a crash) -- fired
+    # at some arbitrary later time, it would compute a plain "since yesterday"
+    # window instead of the tomorrow-anchored preview window, and resend
+    # today's morning items instead of a preview for tomorrow. FORCE_PREVIEW
+    # lets a manual re-run force the correct window regardless of when it's
+    # actually fired.
+    force_preview = os.environ.get("FORCE_PREVIEW", "").lower() == "true"
+    preview = force_preview or is_preview_slot(now)
+    if force_preview:
+        print("[main] FORCE_PREVIEW set, using the tomorrow-anchored preview window")
     cutoff = lookback_cutoff(now, preview=preview)
 
     companies = load_companies()

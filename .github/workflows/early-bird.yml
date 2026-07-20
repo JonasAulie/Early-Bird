@@ -7,6 +7,10 @@ on:
         description: "Run even if outside the 2 target Oslo-time slots (for manual testing)"
         type: boolean
         default: false
+      force_preview:
+        description: "Force the tomorrow-anchored 16:00 preview window, regardless of actual time (for re-running a missed preview)"
+        type: boolean
+        default: false
   schedule:
     # UTC times covering Oslo 07:32 / 16:00 across both CET
     # (winter, UTC+1) and CEST (summer, UTC+2). schedule_guard.py no-ops
@@ -44,5 +48,6 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           FORCE_RUN: ${{ inputs.force }}
+          FORCE_PREVIEW: ${{ inputs.force_preview }}
         run: python -m src.main
 
