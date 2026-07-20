@@ -259,6 +259,16 @@ def main():
 
     entries = draft_entries(candidates)
     print(f"[main] {len(entries)} entries kept after relevance filtering")
+
+    valid_entries = []
+    for e in entries:
+        if not all(e.get(k) for k in ("headline", "comment", "url")):
+            print(f"[main] WARNING: dropping malformed entry from draft_entries "
+                  f"(missing headline/comment/url): {e!r}")
+            continue
+        valid_entries.append(e)
+    entries = valid_entries
+
     kept_urls = {e.get("url") for e in entries}
     for e in entries:
         print(f"[main]   kept: headline={e.get('headline')!r}")
