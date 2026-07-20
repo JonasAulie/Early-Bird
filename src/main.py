@@ -268,23 +268,39 @@ def main():
         if not c.get("summary"):
             c["summary"] = fetch_article_body(c["url"], label=c["company"])
 
+    # Tag each candidate with a small integer id and have the model echo just
+    # that back rather than the full url/company/source_title -- confirmed
+    # live (2026-07-20) that the model can drop those longer echoed fields
+    # from its JSON output entirely, which used to either crash render_html
+    # (missing "url") or, after that was made non-fatal, silently drop the
+    # entry for lack of anything to key it back to its source on. An id is
+    # short enough that the model reliably copies it correctly, and it lets
+    # url/company be looked up from the candidates list itself -- the actual
+    # source of truth -- instead of trusted from the model's echo.
+    for i, c in enumerate(candidates):
+        c["id"] = i
+    candidates_by_id = {c["id"]: c for c in candidates}
+
     entries = draft_entries(candidates)
     print(f"[main] {len(entries)} entries kept after relevance filtering")
 
     valid_entries = []
     for e in entries:
-        if not all(e.get(k) for k in ("headline", "comment", "url")):
+        match = candidates_by_id.get(e.get("id"))
+        if match is None or not e.get("headline") or not e.get("comment"):
             print(f"[main] WARNING: dropping malformed entry from draft_entries "
-                  f"(missing headline/comment/url): {e!r}")
+                  f"(bad id or missing headline/comment): {e!r}")
             continue
+        e["url"] = match["url"]
+        e["company"] = match["company"]
         valid_entries.append(e)
     entries = valid_entries
 
-    kept_urls = {e.get("url") for e in entries}
+    kept_ids = {e["id"] for e in entries}
     for e in entries:
         print(f"[main]   kept: headline={e.get('headline')!r}")
     for c in candidates:
-        if c["url"] not in kept_urls:
+        if c["id"] not in kept_ids:
             print(f"[main]   dropped by relevance filter: company={c['company']!r} title={c['title'][:100]!r}")
 
     if entries:

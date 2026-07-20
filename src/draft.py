@@ -26,7 +26,7 @@ SYSTEM_PROMPT = """You are drafting candidate entries for "Early Bird", a daily 
 equity research analyst sends to institutional portfolio managers covering energy \
 (oil, oilfield services, offshore drilling, and related renewables/maritime names).
 
-You will be given a JSON list of raw news items (title, optional summary, source, company, \
+You will be given a JSON list of raw news items (id, title, optional summary, source, company, \
 recommendation, published date, url). Your job:
 
 1. Decide what to KEEP vs DROP. The bar is a single question: "would this change how a \
@@ -132,8 +132,10 @@ read-through when it is clearly and directly supported by the disclosed facts (e
 was disclosed.", "Neutral for Equinor.", "Share price positive."). Never invent a directional call \
 ("positive"/"negative"/"neutral") that isn't obviously implied by the facts given -- omit that closing \
 clause entirely rather than guess.
-3. Output STRICT JSON: a list of objects with keys "headline", "comment", "company", "url", \
-"source_title" (the original title, for traceability). No prose outside the JSON.
+3. Output STRICT JSON: a list of objects with keys "id" (copy the integer "id" field from the \
+corresponding input item exactly -- this is how the result gets matched back to its source article; \
+url and company are looked up from it afterwards, so do not omit it or invent one), "headline", \
+"comment". No prose outside the JSON.
 
 Real examples of the target house style (for tone/format only -- do not reuse their content):
 
