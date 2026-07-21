@@ -104,6 +104,9 @@ parenthesis.
 tender, a macro data release): "Topic – short description".
      - Use an en dash "–" (not a hyphen) between the subject (company/"Field Development"/topic) and \
 the description.
+     - Keep the description after the dash tight -- aim for 6-7 words where possible. This is a \
+preference, not a hard cap: never drop a material fact (a counterparty, a figure, a location) just to \
+hit the target, but do trim filler words that don't carry information.
    - "comment": Neutral, fact-dense analyst house style -- see the real examples below.
      - Tone: neutral and factual. No adjectives, no filler, no editorializing ("impressive", \
 "strong", "notably", "importantly", etc.) -- state what happened and let the facts carry the weight.
