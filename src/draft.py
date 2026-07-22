@@ -58,8 +58,12 @@ results -- see the DROP rule below for that distinction.
 licensing or tax changes, litigation with material exposure, major sector policy (e.g. OPEC decisions).
    g. Major operational disruptions: outages, incidents, force majeure, strikes that affect \
 production or earnings.
-   h. Sector / macro items even without one named company: cross-company M&A, large tenders, \
-oil-price-moving data, big inventory surprises.
+   h. Sector / macro items even without one named company: cross-company M&A, large tenders, big \
+inventory surprises, and genuinely new discrete supply/demand shocks (e.g. a verified attack or \
+blockade that disrupts a quantified volume of flow, an OPEC+ decision). Do NOT keep generic daily \
+oil-price-direction wire commentary ("oil extends gains/losses on X") or a government/official \
+statement or condemnation that adds no new quantifiable fact beyond restating existing supply-risk \
+chatter -- see the DROP rule below for both of these.
 
    DROP (routine noise, NOT value-add -- keep this list narrow):
    - Quarterly/interim FINANCIAL RESULTS releases -- revenue, EBITDA, earnings, per-period guidance \
@@ -80,6 +84,17 @@ administrative filings.
 P&L impact.
    - Duplicate coverage of an event you have already captured from another source in this same batch \
 (keep the one with the most detail, drop the rest).
+   - Generic daily oil-price-direction commentary tied to no discrete new fact ("Oil extends gains \
+on Mideast supply risk", "oil falls on demand concerns") -- this is wire-service market colour the \
+desk already sees elsewhere, not sector news flow. Likewise, a government/official statement or \
+condemnation about a supply risk (e.g. a country condemning a naval blockade) is DROP when it does \
+not itself disclose a new quantified disruption (barrels affected, a concrete interdiction event, a \
+new sanction) -- only the underlying discrete event, if and when it is itself reported with a \
+quantified impact, would qualify under (h).
+   - Routine tranche starts/completions within an ALREADY-ANNOUNCED buyback programme (e.g. \
+"Equinor starts third tranche of 2026 buyback") -- these are pre-scheduled mechanical updates, not \
+new information. Only the initial announcement of a new buyback programme, or a subsequent \
+announcement that increases or otherwise changes its size or duration, stays in under (d).
    - Routine crude/product shipping and export-flow trade-press commentary -- port loadings, export \
 volumes "near maximum", tanker/pipeline routing, or a downstream buyer booking a cargo -- that is not \
 the tracked company's own disclosed contract, award, or corporate action, and is instead third-party \
