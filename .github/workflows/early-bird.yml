@@ -11,10 +11,6 @@ on:
         description: "Force the tomorrow-anchored 16:00 preview window, regardless of actual time (for re-running a missed preview)"
         type: boolean
         default: false
-      probe_script:
-        description: "TEMP: path to a scripts/probe_*.py to run instead of the real scan (leave empty for a normal run)"
-        type: string
-        default: ""
   schedule:
     # UTC times covering Oslo 07:32 / 16:00 across both CET
     # (winter, UTC+1) and CEST (summer, UTC+2). schedule_guard.py no-ops
@@ -46,12 +42,7 @@ jobs:
       - name: Install headless browser (Playwright Chromium)
         run: playwright install --with-deps chromium
 
-      - name: Run diagnostic probe script (TEMP)
-        if: ${{ inputs.probe_script != '' }}
-        run: PYTHONPATH=. python ${{ inputs.probe_script }}
-
       - name: Run Early Bird scan
-        if: ${{ inputs.probe_script == '' }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

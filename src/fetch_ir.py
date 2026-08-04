@@ -215,8 +215,18 @@ def _attr_date_in(node):
 def _parse_date_string(raw: str):
     low = raw.lower()
     for no, en in _NO_TO_EN_MONTH.items():
-        if no in low:
-            low = low.replace(no, en)
+        # A plain substring .replace() corrupts real English month names that
+        # happen to start with a Norwegian one -- "januar" and "februar" are
+        # themselves exact prefixes of "january"/"february", so a naive
+        # replace turned "January 8, 2026" into "Januaryy 8, 2026". dateutil's
+        # fuzzy parser then can't recognize that token as a month, silently
+        # drops it, and defaults the missing month/day to *today's* -- which
+        # made a real 8 January 2026 Aker Solutions/Equinor press release
+        # permanently re-read as "published today" on every single run.
+        # \b anchors the Norwegian word so it only matches standalone (there
+        # is no boundary between "januar" and the "y" that follows it inside
+        # "january", so this leaves genuine English month names untouched).
+        low = re.sub(rf"\b{no}\b", en, low)
     # Ambiguous all-numeric dates need a locale guess, since dayfirst only
     # matters when both the day and month are plain numbers (a named month,
     # e.g. "July 8, 2026", parses correctly either way). ISO (year-first,

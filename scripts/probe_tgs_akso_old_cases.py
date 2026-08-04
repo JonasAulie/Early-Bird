@@ -1,15 +1,32 @@
-"""One-off diagnostic: the 04 Aug 2026 digest carried a TGS 2D-reimaging
-item and an Aker Solutions/Equinor frame-agreement item that Jonas flagged
-as old news, not genuinely new. Dumps, for both TGS and Aker Solutions:
+"""One-off diagnostic: the 04 Aug 2026 digest carried an Aker Solutions/
+Equinor frame-agreement item Jonas flagged as old news, not genuinely new.
 
-  1. Raw Newsweb messages (precise publishedTime) for the issuer.
-  2. Raw IR-page-scrape output (fetch_company_news), including which
-     anchor/date-extraction path each item's `published` came from.
-  3. Whether each item would currently pass is_recent_enough() for both the
-     morning (preview=False) and 16:00 preview (preview=True) cutoffs.
-  4. For the two flagged headlines specifically (matched by keyword), the
-     raw HTML snippet around the anchor that _extract_published() worked
-     from, so we can see exactly which date string got picked up and why.
+Root cause found: `fetch_ir._parse_date_string`'s Norwegian-month
+translation (`_NO_TO_EN_MONTH`) did a naive substring `.replace()` --
+"januar" and "februar" are themselves exact prefixes of the English
+"january"/"february", so a real English date like "January 8, 2026" got
+silently corrupted into "Januaryy 8, 2026" before ever reaching dateutil.
+dateutil's fuzzy parser can't recognize "Januaryy" as a month, drops it, and
+defaults the missing month/day to *today's* -- which made a real Aker
+Solutions/Equinor press release, actually published 8 January 2026, read as
+"published today" on literally every single run, forever (unlike an
+ordinary stale item, which ages out of the window on its own). Confirmed
+live via this script: `_extract_published()` on the real akersolutions.com
+news-archive anchor for that release returned '2026-08-04T00:00:00' instead
+of '2026-01-08T00:00:00'. The same bug also silently dropped a *different*
+real item ("February 16, 2026" -> "Februaryy 16, 2026" -> dateutil raises
+IllegalMonthError, caught and swallowed as None) -- confirmed the fix
+doesn't regress that path either. Fixed in `_parse_date_string` by using a
+word-boundary-anchored `re.sub` instead of a plain substring replace, so
+"januar"/"februar" no longer matches inside "january"/"february".
+
+(The TGS 2D-reimaging item flagged in the same digest turned out to have a
+genuine same-day (04 Aug) publish date straight from TGS's own official RSS
+feed -- not a date-extraction bug. If it's still showing up as "old" after
+this fix, it's a relevance-filtering question -- TGS puts out this kind of
+multi-client-project-launch release roughly weekly as routine business --
+not a recency bug, and would need a separate discussion about tightening
+`src/draft.py`'s KEEP/DROP criteria.)
 
 Run via a throwaway workflow_dispatch job on a runner with real network
 access (this sandbox's proxy blocks tgs.com/akersolutions.com/the Newsweb
@@ -17,11 +34,10 @@ API directly) -- see README's "midlertidig workflow_dispatch-jobb" pattern.
 """
 from datetime import datetime, timezone
 
-from bs4 import BeautifulSoup
-
 from src.fetch_newsweb import fetch_issuer_messages
-from src.fetch_ir import fetch_company_news, HEADERS, TIMEOUT, _extract_published, _attr_date_in, _DATE_ATTRS
+from src.fetch_ir import fetch_company_news, _extract_published, HEADERS, TIMEOUT
 from src.main import lookback_cutoff, is_recent_enough
+from bs4 import BeautifulSoup
 import requests
 
 TARGETS = [
@@ -48,54 +64,25 @@ def main():
     for company_id, issuer, ir_url, keywords in TARGETS:
         print(f"\n{'=' * 70}\n{company_id} (Newsweb issuer={issuer})\n{'=' * 70}")
 
-        print(f"\n--- raw Newsweb messages ---")
         nw_items = fetch_issuer_messages(issuer)
-        for it in nw_items[:20]:
-            print(f"  published={it.get('published')!r}  title={it['title'][:90]!r}  url={it['url']}")
         dump_recency(f"{company_id} Newsweb", nw_items)
 
-        print(f"\n--- raw IR-scrape items ({ir_url}) ---")
         ir_items = fetch_company_news(company_id, ir_url)
-        for it in ir_items[:20]:
-            print(f"  published={it.get('published')!r}  title={it['title'][:90]!r}  url={it['url']}  "
-                  f"source={it.get('source')!r}")
         dump_recency(f"{company_id} IR-scrape", ir_items)
 
-        # Find the flagged headline(s) and show the raw HTML the date came from.
         try:
             resp = requests.get(ir_url, timeout=TIMEOUT, headers=HEADERS)
             resp.raise_for_status()
         except requests.RequestException as e:
-            print(f"\n  (plain GET of {ir_url} failed: {e} -- can't show raw HTML snippet)")
+            print(f"\n  (plain GET of {ir_url} failed: {e})")
             continue
         soup = BeautifulSoup(resp.text, "html.parser")
-        matched_any = False
         for a in soup.find_all("a", href=True):
             text = a.get_text(strip=True)
-            if not text or len(text) < 15:
+            if not text or len(text) < 15 or not any(kw in text.lower() for kw in keywords):
                 continue
-            if not any(kw in text.lower() for kw in keywords):
-                continue
-            matched_any = True
             print(f"\n  MATCHED anchor text: {text[:120]!r}")
-            print(f"  href: {a['href']}")
-            extracted = _extract_published(a, a["href"])
-            print(f"  _extract_published() result: {extracted!r}")
-            # Walk up 3 ancestors like _extract_published does, dumping each
-            # scope's raw text so we can see exactly what date string (if
-            # any) it's picking up and from where.
-            node = a
-            for depth in range(3):
-                if node is None:
-                    break
-                snippet = node.get_text(" ", strip=True)[:200]
-                attr_hit = _attr_date_in(node)
-                print(f"    ancestor[{depth}] ({node.name}): text={snippet!r}  _attr_date_in={attr_hit!r}")
-                print(f"      raw HTML: {str(node)[:600]!r}")
-                node = node.parent
-        if not matched_any:
-            print(f"\n  (no anchor on the current page matched keywords {keywords} -- "
-                  f"item may have scrolled off the listing already)")
+            print(f"  _extract_published() result: {_extract_published(a, a['href'])!r}")
 
 
 if __name__ == "__main__":

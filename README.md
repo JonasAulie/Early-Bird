@@ -177,6 +177,32 @@ gammel sak ville i det minste falt naturlig ut av vinduet igjen — en feilaktig
 være publisert etter at vi skanner etter den — samme behandling som en
 udatert sak.
 
+**Bug fikset 4. august 2026: samme Aker Solutions/Equinor-sak dukket opp
+igjen, denne gangen via en annen feilmekanisme som forrige punkt ikke
+fanget opp.** `fetch_ir._parse_date_string()`s oversettelse av norske
+månedsnavn (`_NO_TO_EN_MONTH`) gjorde en naiv streng-`.replace()`: "januar"
+og "februar" er selv eksakte prefikser av de engelske ordene
+"january"/"february", så en ekte engelsk dato som "January 8, 2026" ble
+stille korrumpert til "Januaryy 8, 2026" før den i det hele tatt nådde
+dateutil. dateutils fuzzy-parser klarer ikke gjenkjenne "Januaryy" som en
+måned, dropper det tokenet, og faller tilbake på *dagens* måned/dag for det
+som mangler — som gjorde at den ekte 8. januar 2026-pressemeldingen leste
+som "publisert i dag" på **hver eneste kjøring, for alltid** (i motsetning
+til en vanlig gammel sak, som til slutt faller ut av vinduet av seg selv).
+Dette er ikke det samme som 16. juli-fikset over: den feilen ga en dato som
+tilfeldigvis lå i *fremtiden* og ble fanget av `FUTURE_DATE_GRACE`; denne
+feilen ga en dato som alltid leste som *i dag* (aldri fremtidig, aldri
+forbi cutoff), så den øvre grensen har ingen mulighet til å fange den — den
+så identisk ut som en helt ny, ekte sak hver eneste morgen. Bekreftet live
+via `scripts/probe_tgs_akso_old_cases.py`: `_extract_published()` på den
+virkelige akersolutions.com-lenken returnerte `'2026-08-04T00:00:00'`
+istedenfor `'2026-01-08T00:00:00'`. Samme feil forklarte også et separat,
+mer godarta symptom (en "February 16, 2026"-sak ble stille droppet i
+stedet for feildatert — "Februaryy 16, 2026" fikk dateutil til å kaste
+`IllegalMonthError`, fanget opp og behandlet som udatert). Fikset ved å
+bytte `.replace()` ut med et ord-grense-forankret `re.sub(rf"\b{no}\b", ...)`,
+slik at "januar"/"februar" ikke lenger matcher inni "january"/"february".
+
 ## Klokkeslett i datofeltet, ikke bare kalenderdato
 
 `fetch_ir.py` fanger nå opp et klokkeslett rett etter datoen i en
