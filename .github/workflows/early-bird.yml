@@ -48,7 +48,7 @@ jobs:
 
       - name: Run diagnostic probe script (TEMP)
         if: ${{ inputs.probe_script != '' }}
-        run: python ${{ inputs.probe_script }}
+        run: PYTHONPATH=. python ${{ inputs.probe_script }}
 
       - name: Run Early Bird scan
         if: ${{ inputs.probe_script == '' }}
