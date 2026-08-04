@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
 from src.fetch_newsweb import fetch_issuer_messages
-from src.fetch_ir import fetch_company_news, HEADERS, TIMEOUT, _extract_published
+from src.fetch_ir import fetch_company_news, HEADERS, TIMEOUT, _extract_published, _attr_date_in, _DATE_ATTRS
 from src.main import lookback_cutoff, is_recent_enough
 import requests
 
@@ -89,7 +89,9 @@ def main():
                 if node is None:
                     break
                 snippet = node.get_text(" ", strip=True)[:200]
-                print(f"    ancestor[{depth}] ({node.name}): {snippet!r}")
+                attr_hit = _attr_date_in(node)
+                print(f"    ancestor[{depth}] ({node.name}): text={snippet!r}  _attr_date_in={attr_hit!r}")
+                print(f"      raw HTML: {str(node)[:600]!r}")
                 node = node.parent
         if not matched_any:
             print(f"\n  (no anchor on the current page matched keywords {keywords} -- "
