@@ -103,6 +103,20 @@ release). This applies even when the tracked company's name is in the headline. 
 with a genuine company-announced event about the same company (a real contract award, an FID, a bid \
 process launch) -- those stay in under (a)/(c) above; it is specifically routine flow/volume color with \
 no disclosed counterparty-specific commercial event that gets dropped here.
+   - A multi-client seismic company (e.g. TGS, PGS) announcing that it is commencing, launching, or \
+completing a new self-funded multi-client survey, reimaging, or reprocessing project -- this is routine, \
+recurring core-business activity (TGS alone puts out several of these a month) under the company's own \
+multi-client model: the company itself funds the data acquisition upfront and later licenses the \
+resulting data library to multiple customers, with no external contract value or paying counterparty \
+disclosed at announcement. DROP these UNLESS the release itself discloses something that is a genuine \
+departure from routine -- a disclosed dollar value or co-funding/pre-funding commitment from another \
+named party, a first-of-its-kind technology or data type, or entry into a new geographic market/basin \
+for the company. Do NOT confuse this with the seismic company itself being AWARDED a contract by a \
+paying client for proprietary (contracted, not multi-client) acquisition or licensing work, with a \
+disclosed client and scope -- that is a genuine contract award and stays in under (a); the distinction \
+is who is paying whom, not the presence of a named counterparty (a multi-client project can still name a \
+government body or NOC as a data-access/authorization partner without that party paying for or \
+commissioning the survey).
 2. For each item you keep, write:
    - "headline":
      - If the item is about a single company we cover (recommendation is not null/missing): \

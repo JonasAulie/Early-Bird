@@ -380,7 +380,26 @@ anonyme «sources» i stedet for en selskapsmelding — selv om det tracked
 selskapets navn står i overskriften. (Lagt til 15. juli 2026 etter to reelle
 Aramco-saker av nettopp denne typen: havnelasting ved Yanbu og Zhenhuas
 lastbestilling ved en JV-raffineri — begge uten noen selskapsmelding fra
-Aramco selv.)
+Aramco selv.) Rutinemessige starter/fullføringer av egenfinansierte
+multi-client-seismikkprosjekter (typisk TGS/PGS: "Commences/Announces a
+New Multi-client Survey/Reimaging/Reprocessing Project") — dette er
+kjernevirksomhet TGS alene gjør flere ganger i måneden under sin egen
+multi-client-modell (selskapet finansierer innsamlingen selv og lisensierer
+ut dataene til flere kunder i etterkant), ikke en ekstern kontraktstildeling
+med oppgitt motpart/verdi. (Lagt til 4. august 2026 etter at en slik TGS-sak
+dukket opp i 04. august-utgaven — saken hadde riktignok en ekte
+samme-dags-dato fra TGS' egen RSS-feed, så dette var ikke en dato-bug som
+AKSO-saken samme dag, men en ren relevansvurdering.) Droppes med mindre
+saken selv oppgir noe som er et reelt avvik fra det rutinemessige — en
+oppgitt verdi eller medfinansieringsavtale fra en navngitt part, en helt ny
+teknologi/datatype, eller inntreden i et helt nytt geografisk marked for
+selskapet. Ikke forveksle med selskapet selv å bli tildelt en kontrakt av en
+betalende kunde for proprietært (kontraktert, ikke multi-client) arbeid —
+det er en ekte kontraktstildeling og skal med under (a); skillet er hvem
+som betaler hvem, ikke om det står et navngitt selskap i saken (et
+multi-client-prosjekt kan fortsatt navngi et statlig oljeselskap eller en
+myndighet som datatilgangs-/autorisasjonspartner uten at den parten betaler
+for eller bestiller undersøkelsen).
 
 Ved tvil: ta saken MED. Det har skjedd to ganger at filteret var for
 strengt og droppet noe det ikke skulle (TGS' salg til Enverus, og senere
