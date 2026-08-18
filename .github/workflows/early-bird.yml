@@ -26,6 +26,11 @@ on:
 
 jobs:
   scan:
+    # Temporarily disabled: out of Anthropic API credits, so every run was
+    # failing and sending "run failed" emails. Set back to true (or remove
+    # this line) once ANTHROPIC_API_KEY has credit again. Skipped runs don't
+    # trigger failure emails, unlike a run that fails mid-script.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
